@@ -58,6 +58,9 @@ export interface StatsData {
 export interface AiStatus {
   ready: boolean;
   model: string;
-  status: 'ready' | 'connecting' | 'offline';
+  status: 'ready' | 'loading' | 'connecting' | 'fallback' | 'failed' | 'offline';
+  is_neural_network?: boolean;
+  inference_engine?: string;
+  classes_count?: number;
   details?: any;
 }

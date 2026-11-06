@@ -50,12 +50,17 @@ export default function App() {
   const [clearModalOpen, setClearModalOpen] = useState<boolean>(false);
   const [onlyUnackAlerts, setOnlyUnackAlerts] = useState<boolean>(false);
 
-  // Web Audio refs for real microphone capture
+  // Web Audio refs for real microphone capture via AudioWorklet
   const audioContextRef = useRef<AudioContext | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
-  const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
-  const audioBufferRef = useRef<number[]>([]);
+  const audioWorkletNodeRef = useRef<AudioWorkletNode | null>(null);
+  const sourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const isClassifyingRef = useRef<boolean>(false);
+  const roomRef = useRef<string>(room);
+
+  useEffect(() => {
+    roomRef.current = room;
+  }, [room]);
 
   // ── Data Fetching Functions ───────────────────────────────────────────────
 
@@ -204,15 +209,59 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [searchQuery, searchRoom, searchSource]);
 
-  // ── Real Microphone Web Audio Pipeline ────────────────────────────────────
+  // ── Real Microphone Web Audio Pipeline (AudioWorklet) ────────────────────
+
+  const stopAudioCapture = () => {
+    setIsListening(false);
+    setAudioLevel(0);
+
+    if (audioWorkletNodeRef.current) {
+      try {
+        audioWorkletNodeRef.current.port.postMessage({ command: 'stop' });
+        audioWorkletNodeRef.current.disconnect();
+      } catch {
+        // ignore disconnect errors
+      }
+      audioWorkletNodeRef.current = null;
+    }
+
+    if (sourceNodeRef.current) {
+      try {
+        sourceNodeRef.current.disconnect();
+      } catch {
+        // ignore disconnect errors
+      }
+      sourceNodeRef.current = null;
+    }
+
+    if (mediaStreamRef.current) {
+      try {
+        mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+      } catch {
+        // ignore
+      }
+      mediaStreamRef.current = null;
+    }
+
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+      audioContextRef.current.close().catch(() => {});
+      audioContextRef.current = null;
+    }
+  };
 
   const startAudioCapture = async () => {
     setMicError(null);
+    // Cleanup any existing active capture session to avoid duplicate streams
+    stopAudioCapture();
+
     try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Microphone access is not supported by your browser or environment.');
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          channelCount: 1,
-          sampleRate: 16000,
+          channelCount: { ideal: 1 },
           echoCancellation: false,
           noiseSuppression: false,
           autoGainControl: false,
@@ -221,37 +270,53 @@ export default function App() {
 
       mediaStreamRef.current = stream;
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      const audioCtx = new AudioCtx({ sampleRate: 16000 });
+      if (!AudioCtx) {
+        throw new Error('Web Audio API is not supported in this browser.');
+      }
+
+      const audioCtx = new AudioCtx();
       audioContextRef.current = audioCtx;
 
+      if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+      }
+
+      if (!audioCtx.audioWorklet) {
+        throw new Error('AudioWorklet is not supported in this browser context.');
+      }
+
+      // Load custom AudioWorkletProcessor module from /public
+      await audioCtx.audioWorklet.addModule('/audio-recorder-worklet.js');
+
+      // Create AudioWorkletNode running on dedicated audio thread
+      const workletNode = new AudioWorkletNode(audioCtx, 'audio-recorder-worklet');
+      audioWorkletNodeRef.current = workletNode;
+
       const source = audioCtx.createMediaStreamSource(stream);
-      // ScriptProcessor to gather real 1-second audio chunks (16,000 samples)
-      const bufferSize = 4096;
-      const processor = audioCtx.createScriptProcessor(bufferSize, 1, 1);
-      scriptProcessorRef.current = processor;
+      sourceNodeRef.current = source;
 
-      audioBufferRef.current = [];
+      // Pipe microphone into AudioWorkletProcessor
+      source.connect(workletNode);
 
-      processor.onaudioprocess = async (e) => {
-        const inputData = e.inputBuffer.getChannelData(0);
+      // Connect to a silent gain node to destination to ensure audio graph remains active
+      const muteGain = audioCtx.createGain();
+      muteGain.gain.value = 0;
+      workletNode.connect(muteGain);
+      muteGain.connect(audioCtx.destination);
 
-        // Calculate visual audio level
-        let sum = 0;
-        for (let i = 0; i < inputData.length; i++) {
-          sum += Math.abs(inputData[i]);
-          audioBufferRef.current.push(inputData[i]);
-        }
-        const avg = sum / inputData.length;
-        setAudioLevel(Math.min(100, Math.round(avg * 300)));
+      workletNode.port.onmessage = async (event: MessageEvent) => {
+        const data = event.data;
+        if (!data) return;
 
-        // Once we have accumulated ~1 second of 16kHz audio (16,000 samples)
-        if (audioBufferRef.current.length >= 16000 && !isClassifyingRef.current) {
-          const chunkToSend = audioBufferRef.current.slice(0, 16000);
-          audioBufferRef.current = []; // reset for next second
+        if (data.type === 'volume') {
+          setAudioLevel(data.level ?? 0);
+        } else if (data.type === 'chunk') {
+          const chunkToSend: number[] = data.samples;
+          if (!chunkToSend || chunkToSend.length === 0) return;
 
           // Check if chunk has meaningful energy to avoid classifying pure silence
           const rms = Math.sqrt(chunkToSend.reduce((acc, v) => acc + v * v, 0) / chunkToSend.length);
-          if (rms > 0.015) {
+          if (rms > 0.012 && !isClassifyingRef.current) {
             isClassifyingRef.current = true;
             try {
               const res = await fetch('/api/ai/classify', {
@@ -259,15 +324,16 @@ export default function App() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   samples: chunkToSend,
-                  room,
+                  sample_rate: data.sampleRate || 16000,
+                  room: roomRef.current,
                   source: 'microphone',
                 }),
               });
 
               if (res.ok) {
-                const data = await res.json();
-                if (data.detected && data.eventResult?.event) {
-                  const ev = data.eventResult.event;
+                const result = await res.json();
+                if (result.detected && result.eventResult?.event) {
+                  const ev = result.eventResult.event;
                   setRecentEvents((prev) => [ev, ...prev.filter((p) => p.id !== ev.id).slice(0, 7)]);
                   setSessionCounts((prev) => ({
                     ...prev,
@@ -279,7 +345,7 @@ export default function App() {
                 }
               }
             } catch (err) {
-              console.warn('Inference request failed:', err);
+              console.warn('AudioWorklet inference request failed:', err);
             } finally {
               isClassifyingRef.current = false;
             }
@@ -287,34 +353,23 @@ export default function App() {
         }
       };
 
-      source.connect(processor);
-      processor.connect(audioCtx.destination);
-
+      // Start capture in the AudioWorklet
+      workletNode.port.postMessage({ command: 'start' });
       setIsListening(true);
     } catch (err: any) {
-      console.warn('Microphone error:', err);
+      console.warn('Microphone AudioWorklet error:', err);
       setMicError(`Microphone unavailable: ${err.message}. You can use the Quick Sound Simulator to test detections.`);
-      setIsListening(false);
+      stopAudioCapture();
     }
   };
 
-  const stopAudioCapture = () => {
-    setIsListening(false);
-    setAudioLevel(0);
-    if (scriptProcessorRef.current) {
-      scriptProcessorRef.current.disconnect();
-      scriptProcessorRef.current = null;
-    }
-    if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
-      mediaStreamRef.current = null;
-    }
-    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-      audioContextRef.current.close().catch(() => {});
-      audioContextRef.current = null;
-    }
-    audioBufferRef.current = [];
-  };
+  // Ensure clean teardown on component unmount
+  useEffect(() => {
+    return () => {
+      stopAudioCapture();
+    };
+  }, []);
+
 
   // ── Simulator Sound Trigger ───────────────────────────────────────────────
 
@@ -517,7 +572,7 @@ export default function App() {
           <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#e6edf3', marginBottom: '6px' }}>
             🧠 Model
           </div>
-          {aiStatus.ready ? (
+          {aiStatus.ready && aiStatus.is_neural_network ? (
             <span
               style={{
                 display: 'inline-block',
@@ -533,7 +588,7 @@ export default function App() {
             >
               ✓ YAMNet Ready
             </span>
-          ) : (
+          ) : aiStatus.status === 'loading' ? (
             <span
               style={{
                 display: 'inline-block',
@@ -546,7 +601,37 @@ export default function App() {
                 border: '1px solid #9e6a03',
               }}
             >
-              ⏳ Connecting YAMNet…
+              ⏳ Loading YAMNet…
+            </span>
+          ) : aiStatus.status === 'fallback' ? (
+            <span
+              style={{
+                display: 'inline-block',
+                padding: '4px 12px',
+                borderRadius: '999px',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                backgroundColor: '#21262d',
+                color: '#8b949e',
+                border: '1px solid #30363d',
+              }}
+            >
+              ⚠️ Heuristic Fallback
+            </span>
+          ) : (
+            <span
+              style={{
+                display: 'inline-block',
+                padding: '4px 12px',
+                borderRadius: '999px',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                backgroundColor: '#21262d',
+                color: '#8b949e',
+                border: '1px solid #30363d',
+              }}
+            >
+              ○ Standby
             </span>
           )}
         </div>

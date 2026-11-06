@@ -121,11 +121,16 @@ function callAiService(pathname: string, method: string = 'GET', data?: unknown)
 app.get('/api/ai/status', async (_req, res) => {
   try {
     const health = await callAiService('/health', 'GET');
-    isAiServiceRunning = health && health.status === 'ready';
+    const isReady = Boolean(health && health.status === 'ready' && health.is_neural_network);
+    isAiServiceRunning = isReady;
+
     res.json({
-      ready: isAiServiceRunning,
-      model: 'YAMNet',
-      status: isAiServiceRunning ? 'ready' : 'connecting',
+      ready: isReady,
+      model: isReady ? 'YAMNet' : (health?.model || 'YAMNet'),
+      status: health?.status || (isReady ? 'ready' : 'connecting'),
+      is_neural_network: Boolean(health?.is_neural_network),
+      inference_engine: health?.inference_engine || (isReady ? 'yamnet_neural_network' : 'unknown'),
+      classes_count: health?.classes_count || 0,
       details: health,
     });
   } catch {
@@ -133,6 +138,8 @@ app.get('/api/ai/status', async (_req, res) => {
       ready: false,
       model: 'YAMNet',
       status: 'offline',
+      is_neural_network: false,
+      inference_engine: 'offline',
       details: 'Python AI inference service not responding on port 5000',
     });
   }
@@ -140,14 +147,14 @@ app.get('/api/ai/status', async (_req, res) => {
 
 // 2. Audio Classification Gateway
 app.post('/api/ai/classify', async (req, res) => {
-  const { samples, audio_base64, room, source = 'microphone' } = req.body;
+  const { samples, audio_base64, room, source = 'microphone', sample_rate = 16000 } = req.body;
   const targetRoom = room || 'Living Room';
 
   try {
     // Forward to Python YAMNet AI Service
     let aiResponse;
     try {
-      aiResponse = await callAiService('/classify', 'POST', { samples, audio_base64 });
+      aiResponse = await callAiService('/classify', 'POST', { samples, audio_base64, sample_rate });
     } catch {
       aiResponse = null;
     }
