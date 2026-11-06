@@ -91,6 +91,8 @@ export default function App() {
   const [clearModalOpen, setClearModalOpen] = useState<boolean>(false);
   const [onlyUnackAlerts, setOnlyUnackAlerts] = useState<boolean>(false);
   const [settingsModalOpen, setSettingsModalOpen] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'alerts' | 'activities' | 'history' | 'analytics'>('overview');
+  const [infoModalOpen, setInfoModalOpen] = useState<'privacy' | 'monitored' | null>(null);
 
   // Caregiver Alert Notification & Chime settings
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(() => {
@@ -761,36 +763,41 @@ export default function App() {
   }, [alerts]);
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#0d1117', color: '#e6edf3' }}>
-      {/* ── SIDEBAR ────────────────────────────────────────────────────────── */}
+    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#0d1117', color: '#e6edf3', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>
+      {/* ── SIDEBAR NAVIGATION ─────────────────────────────────────────────── */}
       <aside
         style={{
-          width: '320px',
-          minWidth: '290px',
+          width: '260px',
+          minWidth: '260px',
           backgroundColor: '#161b22',
           borderRight: '1px solid #30363d',
-          padding: '24px 20px',
+          padding: '20px 16px',
           boxSizing: 'border-box',
           display: 'flex',
           flexDirection: 'column',
           gap: '16px',
+          userSelect: 'none',
         }}
       >
+        {/* Brand */}
         <div>
-          <h2 style={{ margin: '0 0 4px 0', fontSize: '1.4rem', fontWeight: 700, color: '#ffffff' }}>
-            🎧 EchoTrace
-          </h2>
-          <div style={{ fontSize: '0.82rem', color: '#8b949e', lineHeight: 1.4 }}>
-            Privacy-first ambient sound memory for dementia caregivers.
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+            <span style={{ fontSize: '1.4rem' }}>🎧</span>
+            <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#ffffff', letterSpacing: '-0.02em' }}>
+              EchoTrace
+            </h2>
+          </div>
+          <div style={{ fontSize: '0.76rem', color: '#8b949e', lineHeight: 1.3 }}>
+            Ambient Sound Memory · Caregiver Assistant
           </div>
         </div>
 
         <hr style={{ border: 'none', borderTop: '1px solid #30363d', margin: '2px 0' }} />
 
-        {/* Room select */}
+        {/* Room selector */}
         <div>
-          <label style={{ display: 'block', fontSize: '0.8rem', color: '#8b949e', marginBottom: '6px', fontWeight: 600 }}>
-            📍 Room
+          <label style={{ display: 'block', fontSize: '0.74rem', color: '#8b949e', marginBottom: '6px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            📍 Monitored Room
           </label>
           <select
             value={room}
@@ -800,9 +807,9 @@ export default function App() {
               backgroundColor: '#21262d',
               color: '#e6edf3',
               border: '1px solid #30363d',
-              borderRadius: '8px',
-              padding: '8px 12px',
-              fontSize: '0.9rem',
+              borderRadius: '6px',
+              padding: '8px 10px',
+              fontSize: '0.85rem',
               fontWeight: 500,
               outline: 'none',
               cursor: 'pointer',
@@ -816,348 +823,110 @@ export default function App() {
           </select>
         </div>
 
-        {/* Client Session Badge */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '6px' }}>
-          <span style={{ fontSize: '0.74rem', color: '#8b949e' }}>Session:</span>
-          <span
-            title={`Active Client Session: ${clientSessionId}`}
-            style={{
-              fontFamily: 'monospace',
-              fontSize: '0.72rem',
-              color: '#58a6ff',
-              backgroundColor: '#0d2d6e',
-              padding: '2px 6px',
-              borderRadius: '4px',
-              border: '1px solid #1f6feb',
-            }}
-          >
-            {clientSessionId.length > 12 ? `${clientSessionId.slice(0, 8)}…` : clientSessionId}
-          </span>
-        </div>
-
-        <hr style={{ border: 'none', borderTop: '1px solid #30363d', margin: '2px 0' }} />
-
-        {/* Model status */}
+        {/* Navigation Tabs Menu */}
         <div>
-          <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#e6edf3', marginBottom: '6px' }}>
-            🧠 Model
+          <div style={{ fontSize: '0.74rem', color: '#8b949e', marginBottom: '6px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Navigation
           </div>
-          {aiStatus.ready && aiStatus.is_neural_network ? (
-            <span
-              style={{
-                display: 'inline-block',
-                padding: '4px 12px',
-                borderRadius: '999px',
-                fontSize: '0.78rem',
-                fontWeight: 600,
-                letterSpacing: '0.04em',
-                backgroundColor: '#0d2d6e',
-                color: '#58a6ff',
-                border: '1px solid #1f6feb',
-              }}
-            >
-              ✓ YAMNet Ready
-            </span>
-          ) : aiStatus.status === 'loading' ? (
-            <span
-              style={{
-                display: 'inline-block',
-                padding: '4px 12px',
-                borderRadius: '999px',
-                fontSize: '0.78rem',
-                fontWeight: 600,
-                backgroundColor: '#271d0a',
-                color: '#e3b341',
-                border: '1px solid #9e6a03',
-              }}
-            >
-              ⏳ Loading YAMNet…
-            </span>
-          ) : aiStatus.status === 'fallback' ? (
-            <span
-              style={{
-                display: 'inline-block',
-                padding: '4px 12px',
-                borderRadius: '999px',
-                fontSize: '0.78rem',
-                fontWeight: 600,
-                backgroundColor: '#21262d',
-                color: '#8b949e',
-                border: '1px solid #30363d',
-              }}
-            >
-              ⚠️ Heuristic Fallback
-            </span>
-          ) : (
-            <span
-              style={{
-                display: 'inline-block',
-                padding: '4px 12px',
-                borderRadius: '999px',
-                fontSize: '0.78rem',
-                fontWeight: 600,
-                backgroundColor: '#21262d',
-                color: '#8b949e',
-                border: '1px solid #30363d',
-              }}
-            >
-              ○ Standby
-            </span>
-          )}
-        </div>
-
-        {/* Microphone controls */}
-        <div>
-          <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#e6edf3', marginBottom: '6px' }}>
-            🎙️ Microphone
-          </div>
-
-          <div style={{ marginBottom: '10px' }}>
-            {isListening ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span
+          <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            {[
+              { id: 'overview', label: 'Live Overview', icon: '🔴', count: null },
+              { id: 'alerts', label: 'Caregiver Alerts', icon: '🚨', count: unackAlertCount > 0 ? unackAlertCount : null, alert: unackAlertCount > 0 },
+              { id: 'activities', label: 'Daily Routines', icon: '🧠', count: activities.length },
+              { id: 'history', label: 'Search & Timeline', icon: '🔍', count: null },
+              { id: 'analytics', label: 'Insights & Patterns', icon: '📊', count: null },
+            ].map((item) => {
+              const active = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id as typeof activeTab)}
                   style={{
-                    display: 'inline-block',
-                    padding: '4px 12px',
-                    borderRadius: '999px',
-                    fontSize: '0.78rem',
-                    fontWeight: 600,
-                    letterSpacing: '0.04em',
-                    backgroundColor: '#0d4429',
-                    color: '#3fb950',
-                    border: '1px solid #238636',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    width: '100%',
+                    padding: '8px 10px',
+                    borderRadius: '6px',
+                    border: active ? '1px solid #1f6feb' : '1px solid transparent',
+                    backgroundColor: active ? 'rgba(31, 111, 235, 0.15)' : 'transparent',
+                    color: active ? '#58a6ff' : '#c9d1d9',
+                    fontSize: '0.82rem',
+                    fontWeight: active ? 600 : 500,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'all 0.15s ease',
                   }}
                 >
-                  ● LIVE
-                </span>
-                <span style={{ fontSize: '0.75rem', color: '#8b949e' }}>
-                  Signal: {audioLevel}%
-                </span>
-              </div>
-            ) : (
-              <span
-                style={{
-                  display: 'inline-block',
-                  padding: '4px 12px',
-                  borderRadius: '999px',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  letterSpacing: '0.04em',
-                  backgroundColor: '#21262d',
-                  color: '#8b949e',
-                  border: '1px solid #30363d',
-                }}
-              >
-                ○ Idle
-              </span>
-            )}
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>{item.icon}</span>
+                    <span>{item.label}</span>
+                  </span>
+                  {item.count !== null && (
+                    <span
+                      style={{
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        padding: '1px 6px',
+                        borderRadius: '999px',
+                        backgroundColor: item.alert ? '#da3633' : '#21262d',
+                        color: item.alert ? '#ffffff' : '#8b949e',
+                      }}
+                    >
+                      {item.count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* System & Session Status */}
+        <div style={{ backgroundColor: '#0d1117', border: '1px solid #30363d', borderRadius: '8px', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.74rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ color: '#8b949e' }}>AI Model:</span>
+            <span
+              style={{
+                color: aiStatus.ready && aiStatus.is_neural_network ? '#3fb950' : '#e3b341',
+                fontWeight: 600,
+              }}
+            >
+              {aiStatus.ready && aiStatus.is_neural_network ? '✓ YAMNet Ready' : aiStatus.status === 'loading' ? '⏳ Loading…' : '⚠️ Ready'}
+            </span>
           </div>
 
-          {isListening ? (
-            <button
-              onClick={stopAudioCapture}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ color: '#8b949e' }}>Session:</span>
+            <span
+              title={`Active Tab Session: ${clientSessionId}`}
               style={{
-                width: '100%',
-                backgroundColor: '#21262d',
-                color: '#e6edf3',
+                fontFamily: 'monospace',
+                color: '#58a6ff',
+                backgroundColor: '#161b22',
+                padding: '1px 5px',
+                borderRadius: '4px',
                 border: '1px solid #30363d',
-                borderRadius: '8px',
-                fontWeight: 600,
-                padding: '9px 14px',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
               }}
             >
-              ⏹ Stop Listening
-            </button>
-          ) : (
-            <button
-              onClick={startAudioCapture}
-              style={{
-                width: '100%',
-                backgroundColor: '#238636',
-                borderColor: '#2ea043',
-                color: '#ffffff',
-                border: '1px solid #2ea043',
-                borderRadius: '8px',
-                fontWeight: 600,
-                padding: '9px 14px',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-              }}
-            >
-              ▶ Start Listening
-            </button>
-          )}
+              {clientSessionId.slice(0, 8)}…
+            </span>
+          </div>
 
-          {micError && (
-            <div
-              style={{
-                marginTop: '8px',
-                padding: '8px 10px',
-                backgroundColor: '#271d0a',
-                border: '1px solid #9e6a03',
-                borderRadius: '6px',
-                fontSize: '0.75rem',
-                color: '#e3b341',
-                lineHeight: 1.4,
-              }}
-            >
-              ⚠ {micError}
-            </div>
-          )}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ color: '#8b949e' }}>Microphone:</span>
+            <span style={{ color: isListening ? '#3fb950' : '#8b949e', fontWeight: 600 }}>
+              {isListening ? `● Live (${audioLevel}%)` : '○ Standby'}
+            </span>
+          </div>
         </div>
 
-        {/* Quick Sound Simulator */}
-        <div style={{ border: '1px solid #30363d', borderRadius: '8px', overflow: 'hidden' }}>
-          <button
-            onClick={() => setSimulatorOpen(!simulatorOpen)}
-            style={{
-              width: '100%',
-              backgroundColor: '#161b22',
-              color: '#e6edf3',
-              border: 'none',
-              padding: '9px 12px',
-              textAlign: 'left',
-              fontSize: '0.82rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
-            <span>⚡ Sound Simulator ({room})</span>
-            <span style={{ color: '#8b949e', fontSize: '0.8rem' }}>{simulatorOpen ? '▲' : '▼'}</span>
-          </button>
-          {simulatorOpen && (
-            <div style={{ padding: '10px', backgroundColor: '#0d1117', borderTop: '1px solid #30363d' }}>
-              <div style={{ fontSize: '0.72rem', color: '#8b949e', marginBottom: '8px' }}>
-                Simulated events are tagged with <span style={{ color: '#e3b341' }}>⚡ Simulated</span>:
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
-                {[
-                  { label: '🔑 Keys jingling', conf: 0.94 },
-                  { label: '🚪 Door knock', sound: 'Knock', conf: 0.88 },
-                  { label: '💧 Water tap', sound: 'Water tap, faucet', conf: 0.91 },
-                  { label: '🗣️ Speech', conf: 0.86 },
-                  { label: '👣 Footsteps', conf: 0.79 },
-                  { label: '☕ Coffee maker', conf: 0.92 },
-                  { label: '🍽️ Dishes & pans', sound: 'Dishes, pots, and pans', conf: 0.89 },
-                  { label: '🪟 Glass breaking', sound: 'Glass breaking', conf: 0.96 },
-                  { label: '🚨 Smoke alarm', sound: 'Smoke detector, smoke alarm', conf: 0.98 },
-                  { label: '🗄️ Drawer', conf: 0.84 },
-                ].map((item) => (
-                  <button
-                    key={item.label}
-                    onClick={() => triggerSimulatedSound(item.sound || item.label.replace(/^[\p{Emoji}\s]+/u, ''), item.conf)}
-                    style={{
-                      backgroundColor: '#21262d',
-                      color: item.sound?.includes('alarm') || item.sound?.includes('Glass') ? '#f85149' : '#c9d1d9',
-                      border: '1px solid #30363d',
-                      borderRadius: '6px',
-                      padding: '6px 8px',
-                      fontSize: '0.72rem',
-                      fontWeight: 500,
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Privacy Expander */}
-        <div style={{ border: '1px solid #30363d', borderRadius: '8px', overflow: 'hidden' }}>
-          <button
-            onClick={() => setPrivacyOpen(!privacyOpen)}
-            style={{
-              width: '100%',
-              backgroundColor: '#161b22',
-              color: '#e6edf3',
-              border: 'none',
-              padding: '9px 12px',
-              textAlign: 'left',
-              fontSize: '0.82rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
-            <span>🔒 Privacy Guarantee</span>
-            <span style={{ color: '#8b949e', fontSize: '0.8rem' }}>{privacyOpen ? '▲' : '▼'}</span>
-          </button>
-          {privacyOpen && (
-            <div
-              style={{
-                padding: '10px 12px',
-                backgroundColor: '#0d1117',
-                borderTop: '1px solid #30363d',
-                fontSize: '0.78rem',
-                color: '#8b949e',
-                lineHeight: 1.5,
-              }}
-            >
-              <strong style={{ color: '#e6edf3' }}>No raw audio is stored or transmitted.</strong>
-              <br />
-              Audio is classified locally in 1-second memory chunks. Only event metadata (sound label, confidence %, timestamp, room) is saved to local SQLite (<code style={{ color: '#58a6ff' }}>echotrace.db</code>).
-            </div>
-          )}
-        </div>
-
-        {/* Monitored Sounds Expander */}
-        <div style={{ border: '1px solid #30363d', borderRadius: '8px', overflow: 'hidden' }}>
-          <button
-            onClick={() => setMonitoredOpen(!monitoredOpen)}
-            style={{
-              width: '100%',
-              backgroundColor: '#161b22',
-              color: '#e6edf3',
-              border: 'none',
-              padding: '9px 12px',
-              textAlign: 'left',
-              fontSize: '0.82rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
-            <span>📋 Monitored classes ({TARGET_CLASSES.length})</span>
-            <span style={{ color: '#8b949e', fontSize: '0.8rem' }}>{monitoredOpen ? '▲' : '▼'}</span>
-          </button>
-          {monitoredOpen && (
-            <div
-              style={{
-                padding: '10px 12px',
-                backgroundColor: '#0d1117',
-                borderTop: '1px solid #30363d',
-                maxHeight: '160px',
-                overflowY: 'auto',
-                fontSize: '0.75rem',
-                color: '#8b949e',
-                lineHeight: 1.6,
-              }}
-            >
-              {[...TARGET_CLASSES].sort().map((c) => (
-                <div key={c}>• {c}</div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Database Management Tools */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: 'auto' }}>
+        {/* Bottom Navigation & Tools */}
+        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '6px' }}>
           <button
             onClick={() => setSettingsModalOpen(true)}
             style={{
+              width: '100%',
               backgroundColor: '#21262d',
               color: '#e6edf3',
               border: '1px solid #30363d',
@@ -1172,570 +941,800 @@ export default function App() {
               gap: '6px',
             }}
           >
-            ⚙️ Settings
+            ⚙️ Settings & Thresholds
           </button>
-          <button
-            onClick={() => setResetModalOpen(true)}
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+            <button
+              onClick={() => setInfoModalOpen('privacy')}
+              style={{
+                backgroundColor: '#161b22',
+                color: '#8b949e',
+                border: '1px solid #30363d',
+                borderRadius: '6px',
+                padding: '5px 6px',
+                fontSize: '0.72rem',
+                cursor: 'pointer',
+                textAlign: 'center',
+              }}
+            >
+              🔒 Privacy
+            </button>
+            <button
+              onClick={() => setInfoModalOpen('monitored')}
+              style={{
+                backgroundColor: '#161b22',
+                color: '#8b949e',
+                border: '1px solid #30363d',
+                borderRadius: '6px',
+                padding: '5px 6px',
+                fontSize: '0.72rem',
+                cursor: 'pointer',
+                textAlign: 'center',
+              }}
+            >
+              📋 Classes (20)
+            </button>
+          </div>
+
+          <a
+            href="/api/reports/csv"
+            download
             style={{
-              backgroundColor: '#21262d',
+              width: '100%',
+              backgroundColor: '#161b22',
               color: '#58a6ff',
               border: '1px solid #30363d',
               borderRadius: '6px',
               padding: '6px 10px',
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              textAlign: 'center',
+              fontSize: '0.74rem',
+              fontWeight: 500,
+              textDecoration: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              boxSizing: 'border-box',
             }}
           >
-            🔄 Reset Sample Data
-          </button>
-          <button
-            onClick={() => setClearModalOpen(true)}
-            style={{
-              backgroundColor: '#21262d',
-              color: '#f85149',
-              border: '1px solid #30363d',
-              borderRadius: '6px',
-              padding: '6px 10px',
-              fontSize: '0.75rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              textAlign: 'center',
-            }}
-          >
-            🗑️ Clear History...
-          </button>
+            📥 Export CSV Report
+          </a>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+            <button
+              onClick={() => setResetModalOpen(true)}
+              style={{
+                backgroundColor: '#161b22',
+                color: '#8b949e',
+                border: '1px solid #30363d',
+                borderRadius: '6px',
+                padding: '5px 4px',
+                fontSize: '0.7rem',
+                cursor: 'pointer',
+                textAlign: 'center',
+              }}
+            >
+              🔄 Reset Demo
+            </button>
+            <button
+              onClick={() => setClearModalOpen(true)}
+              style={{
+                backgroundColor: '#161b22',
+                color: '#f85149',
+                border: '1px solid #30363d',
+                borderRadius: '6px',
+                padding: '5px 4px',
+                fontSize: '0.7rem',
+                cursor: 'pointer',
+                textAlign: 'center',
+              }}
+            >
+              🗑️ Clear DB
+            </button>
+          </div>
         </div>
       </aside>
 
-      {/* ── MAIN CONTENT ───────────────────────────────────────────────────── */}
-      <main style={{ flex: 1, padding: '28px 36px', overflowY: 'auto' }}>
-        {/* Active Alert Banner */}
+      {/* ── MAIN CONTENT AREA ──────────────────────────────────────────────── */}
+      <main style={{ flex: 1, padding: '24px 32px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {/* Top Active Urgent Alert Banner */}
         {topActiveAlert && (
           <div
             style={{
-              backgroundColor: '#4d0000',
+              backgroundColor: 'rgba(218, 54, 51, 0.15)',
               border: '1px solid #f85149',
               borderRadius: '8px',
-              padding: '14px 20px',
-              marginBottom: '20px',
+              padding: '12px 18px',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              boxShadow: '0 4px 12px rgba(248,81,73,0.15)',
+              boxShadow: '0 4px 16px rgba(248,81,73,0.18)',
             }}
           >
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '1.2rem' }}>⚠️</span>
-                <strong style={{ color: '#ffffff', fontSize: '1rem' }}>
-                  {topActiveAlert.alert_type} ({topActiveAlert.severity})
-                </strong>
-                <span
-                  style={{
-                    fontSize: '0.7rem',
-                    padding: '2px 8px',
-                    borderRadius: '4px',
-                    backgroundColor: topActiveAlert.source === 'microphone' ? '#0d4429' : '#271d0a',
-                    color: topActiveAlert.source === 'microphone' ? '#3fb950' : '#e3b341',
-                    border: '1px solid currentColor',
-                  }}
-                >
-                  {topActiveAlert.source === 'microphone' ? '🎙️ Real Mic' : '⚡ Simulated'}
-                </span>
-              </div>
-              <div style={{ color: '#ffb3ba', fontSize: '0.85rem', marginTop: '4px' }}>
-                {topActiveAlert.description} &nbsp;·&nbsp; {formatDateTime(topActiveAlert.timestamp)}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontSize: '1.4rem' }}>🚨</span>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <strong style={{ color: '#ffffff', fontSize: '0.95rem' }}>
+                    {topActiveAlert.alert_type} ({topActiveAlert.severity} Alert)
+                  </strong>
+                  <span
+                    style={{
+                      fontSize: '0.68rem',
+                      padding: '1px 6px',
+                      borderRadius: '4px',
+                      backgroundColor: topActiveAlert.source === 'microphone' ? '#0d4429' : '#271d0a',
+                      color: topActiveAlert.source === 'microphone' ? '#3fb950' : '#e3b341',
+                      border: '1px solid currentColor',
+                    }}
+                  >
+                    {topActiveAlert.source === 'microphone' ? '🎙️ Real Mic' : '⚡ Simulated'}
+                  </span>
+                </div>
+                <div style={{ color: '#ffb3ba', fontSize: '0.8rem', marginTop: '2px' }}>
+                  {topActiveAlert.description} &nbsp;·&nbsp; {topActiveAlert.room ? `📍 ${topActiveAlert.room}` : ''} &nbsp;·&nbsp; {formatDateTime(topActiveAlert.timestamp)}
+                </div>
               </div>
             </div>
-            <button
-              onClick={() => handleAcknowledgeAlert(topActiveAlert.id)}
-              style={{
-                backgroundColor: '#f85149',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '8px 16px',
-                fontSize: '0.85rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              ✓ Acknowledge
-            </button>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button
+                onClick={() => setActiveTab('alerts')}
+                style={{
+                  backgroundColor: '#21262d',
+                  color: '#e6edf3',
+                  border: '1px solid #30363d',
+                  borderRadius: '6px',
+                  padding: '6px 12px',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                View Details
+              </button>
+              <button
+                onClick={() => handleAcknowledgeAlert(topActiveAlert.id)}
+                style={{
+                  backgroundColor: '#f85149',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '6px 14px',
+                  fontSize: '0.8rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                ✓ Acknowledge
+              </button>
+            </div>
           </div>
         )}
 
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+        {/* View Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <div>
-            <h1 style={{ margin: '0 0 6px 0', fontSize: '1.9rem', fontWeight: 700, color: '#ffffff' }}>
-              🎧 EchoTrace
+            <h1 style={{ margin: '0 0 4px 0', fontSize: '1.5rem', fontWeight: 700, color: '#ffffff' }}>
+              {activeTab === 'overview' && 'Ambient Sound Monitor'}
+              {activeTab === 'alerts' && 'Caregiver Alerts & Urgent Sounds'}
+              {activeTab === 'activities' && 'Interpreted Daily Routines'}
+              {activeTab === 'history' && 'Sound Timeline & Search'}
+              {activeTab === 'analytics' && 'Activity Insights & Patterns'}
             </h1>
-            <div style={{ fontSize: '0.92rem', color: '#8b949e' }}>
-              Ambient sound memory assistant &nbsp;·&nbsp; Monitored Room: <strong style={{ color: '#e6edf3' }}>{room}</strong>
+            <div style={{ fontSize: '0.84rem', color: '#8b949e' }}>
+              {activeTab === 'overview' && `Real-time ambient sound classification and caregiver monitoring for ${room}`}
+              {activeTab === 'alerts' && 'Manage urgent sound events requiring caregiver attention (smoke alarms, falls, broken glass)'}
+              {activeTab === 'activities' && 'Composite routines synthesized from sequences of domestic sounds'}
+              {activeTab === 'history' && 'Filter and search through the SQLite sound event database'}
+              {activeTab === 'analytics' && 'Time-of-day activity trends and room sound distribution'}
             </div>
           </div>
 
-          {/* Header Actions */}
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '5px 12px',
+                borderRadius: '999px',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                backgroundColor: isListening ? '#0d4429' : '#21262d',
+                color: isListening ? '#3fb950' : '#8b949e',
+                border: isListening ? '1px solid #238636' : '1px solid #30363d',
+              }}
+            >
+              {isListening ? `● LIVE MONITORING (${audioLevel}%)` : '○ MONITORING STANDBY'}
+            </span>
+
             <button
               onClick={() => setSettingsModalOpen(true)}
               style={{
                 backgroundColor: '#21262d',
                 color: '#e6edf3',
                 border: '1px solid #30363d',
-                borderRadius: '8px',
-                padding: '9px 16px',
-                fontSize: '0.85rem',
+                borderRadius: '6px',
+                padding: '6px 12px',
+                fontSize: '0.8rem',
                 fontWeight: 600,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
                 cursor: 'pointer',
               }}
             >
               ⚙️ Settings
             </button>
-            <a
-              href="/api/reports/csv"
-              download
-              style={{
-                backgroundColor: '#21262d',
-                color: '#58a6ff',
-                border: '1px solid #30363d',
-                borderRadius: '8px',
-                padding: '9px 16px',
-                fontSize: '0.85rem',
-                fontWeight: 600,
-                textDecoration: 'none',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              📥 Export CSV Report
-            </a>
           </div>
         </div>
 
-        <hr style={{ border: 'none', borderTop: '1px solid #30363d', margin: '16px 0' }} />
-
-        {/* ── Stats Row ────────────────────────────────────────────────────── */}
+        {/* ── UNIFIED MONITORING & SOUND SIMULATOR CONSOLE ───────────────────── */}
         <div
           style={{
+            backgroundColor: '#161b22',
+            border: '1px solid #30363d',
+            borderRadius: '10px',
+            padding: '18px 20px',
             display: 'grid',
-            gridTemplateColumns: 'repeat(5, 1fr)',
-            gap: '14px',
-            marginBottom: '24px',
+            gridTemplateColumns: '1.2fr 1.8fr',
+            gap: '24px',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.15)',
           }}
         >
-          <div style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '10px', padding: '16px 18px' }}>
-            <div style={{ color: '#8b949e', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-              🔔 Total Events
-            </div>
-            <div style={{ color: '#ffffff', fontSize: '1.8rem', fontWeight: 700 }}>{stats.total}</div>
-          </div>
-
-          <div style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '10px', padding: '16px 18px' }}>
-            <div style={{ color: '#8b949e', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-              📅 Today
-            </div>
-            <div style={{ color: '#ffffff', fontSize: '1.8rem', fontWeight: 700 }}>{stats.today}</div>
-          </div>
-
-          <div style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '10px', padding: '16px 18px' }}>
-            <div style={{ color: '#8b949e', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-              📆 This Week
-            </div>
-            <div style={{ color: '#ffffff', fontSize: '1.8rem', fontWeight: 700 }}>{stats.thisWeek}</div>
-          </div>
-
-          <div style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '10px', padding: '16px 18px' }}>
-            <div style={{ color: '#8b949e', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-              🚨 Active Alerts
-            </div>
-            <div style={{ color: unackAlertCount > 0 ? '#f85149' : '#3fb950', fontSize: '1.8rem', fontWeight: 700 }}>
-              {unackAlertCount}
-            </div>
-          </div>
-
-          <div style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '10px', padding: '16px 18px' }}>
-            <div style={{ color: '#8b949e', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-              🎙️ Status
-            </div>
-            <div style={{ color: isListening ? '#3fb950' : '#8b949e', fontSize: '1.8rem', fontWeight: 700 }}>
-              {isListening ? 'LIVE' : 'Idle'}
-            </div>
-          </div>
-        </div>
-
-        <hr style={{ border: 'none', borderTop: '1px solid #30363d', margin: '20px 0' }} />
-
-        {/* ── Live Feed & Session Counts (2 Columns) ────────────────────────── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: '24px', marginBottom: '28px' }}>
-          {/* Column 1: Live Feed */}
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#c9d1d9', margin: 0 }}>
-                🔴 Live Feed
-              </h3>
-              <span style={{ fontSize: '0.75rem', color: '#8b949e' }}>Auto-refreshes every 3s</span>
-            </div>
-
-            {recentEvents.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {recentEvents.map((ev) => (
-                  <div
-                    key={ev.id}
-                    style={{
-                      backgroundColor: '#161b22',
-                      border: '1px solid #30363d',
-                      borderLeft: '3px solid #58a6ff',
-                      borderRadius: '8px',
-                      padding: '12px 16px',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '0.98rem', fontWeight: 600, color: '#e6edf3' }}>
-                          🔊 {ev.sound_class}
-                        </span>
-                        <span
-                          style={{
-                            fontSize: '0.68rem',
-                            padding: '1px 6px',
-                            borderRadius: '4px',
-                            backgroundColor: ev.source === 'microphone' ? '#0d4429' : '#21262d',
-                            color: ev.source === 'microphone' ? '#3fb950' : '#8b949e',
-                            border: '1px solid #30363d',
-                          }}
-                        >
-                          {ev.source === 'microphone' ? '🎙️ Mic' : '⚡ Sim'}
-                        </span>
-                        {ev.duration > 1 && (
-                          <span style={{ fontSize: '0.72rem', color: '#8b949e' }}>
-                            ⏱️ {ev.duration}s
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#58a6ff' }}>
-                        {Math.round(ev.confidence * 100)}%
-                      </div>
-                    </div>
-                    <div style={{ fontSize: '0.78rem', color: '#8b949e', marginTop: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>🕐 {formatTime(ev.timestamp)} &nbsp;|&nbsp; 📍 {ev.room}</span>
-                      {(ev.client_session_id || ev.session_id) && (
-                        <span style={{ fontSize: '0.68rem', color: '#58a6ff', fontFamily: 'monospace' }}>
-                          🆔 {(ev.client_session_id || ev.session_id || '').slice(0, 8)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div
-                style={{
-                  backgroundColor: '#0d2d6e',
-                  border: '1px solid #1f6feb',
-                  borderRadius: '8px',
-                  padding: '16px 20px',
-                  color: '#e6edf3',
-                  fontSize: '0.88rem',
-                }}
-              >
-                {isListening
-                  ? '👂 Listening… No sounds detected yet. Try speaking, clapping, or click the Quick Sound Simulator in the sidebar!'
-                  : 'No events recorded yet. Press ▶ Start Listening in the sidebar.'}
-              </div>
-            )}
-          </div>
-
-          {/* Column 2: Session Counts */}
-          <div>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#c9d1d9', marginTop: 0, marginBottom: '12px' }}>
-              📊 Sound Frequency
-            </h3>
-
-            {barChartData.length > 0 ? (
-              <div
-                style={{
-                  backgroundColor: '#161b22',
-                  border: '1px solid #30363d',
-                  borderRadius: '10px',
-                  padding: '16px 18px',
-                }}
-              >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {barChartData.map((item) => {
-                    const pct = Math.max(8, Math.round((item.count / maxBarCount) * 100));
-                    return (
-                      <div key={item.sound}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '3px' }}>
-                          <span style={{ color: '#e6edf3', fontWeight: 500 }}>{item.sound}</span>
-                          <span style={{ color: '#58a6ff', fontWeight: 600 }}>{item.count}</span>
-                        </div>
-                        <div
-                          style={{
-                            height: '12px',
-                            backgroundColor: '#21262d',
-                            borderRadius: '4px',
-                            overflow: 'hidden',
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: `${pct}%`,
-                              height: '100%',
-                              backgroundColor: '#58a6ff',
-                              borderRadius: '4px',
-                              transition: 'width 0.4s ease',
-                            }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : (
-              <div style={{ color: '#8b949e', fontSize: '0.85rem' }}>
-                Session counts will appear here once sounds are detected.
-              </div>
-            )}
-          </div>
-        </div>
-
-        <hr style={{ border: 'none', borderTop: '1px solid #30363d', margin: '24px 0' }} />
-
-        {/* ── Activity Intelligence Section ─────────────────────────────────── */}
-        <div style={{ marginBottom: '28px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          {/* Column 1: Live Audio Controls & Visualizer */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#c9d1d9', margin: 0 }}>
-                🧠 Activity Intelligence (Interpreted Daily Routines)
-              </h3>
-              <div style={{ fontSize: '0.78rem', color: '#8b949e', marginTop: '2px' }}>
-                Combines related sounds into possible activities (e.g. meal prep, hygiene, room transitions).
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <span style={{ fontWeight: 600, fontSize: '0.9rem', color: '#e6edf3' }}>
+                  🎙️ Ambient Microphone ({room})
+                </span>
+                <span style={{ fontSize: '0.75rem', color: isListening ? '#3fb950' : '#8b949e', fontWeight: 600 }}>
+                  {isListening ? 'Active' : 'Stopped'}
+                </span>
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#8b949e' }}>
+                Captures ambient audio through AudioWorklet and classifies at 16 kHz locally.
               </div>
             </div>
-            <span style={{ fontSize: '0.8rem', color: '#58a6ff' }}>{activities.length} routine(s) identified</span>
-          </div>
 
-          {activities.length > 0 ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '12px' }}>
-              {activities.map((act) => {
-                const eventCount = JSON.parse(act.related_event_ids || '[]').length;
-                return (
-                  <div
-                    key={act.id}
-                    style={{
-                      backgroundColor: '#161b22',
-                      border: '1px solid #30363d',
-                      borderRadius: '8px',
-                      padding: '14px 16px',
-                      borderLeft: '3px solid #3fb950',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                      <strong style={{ color: '#ffffff', fontSize: '0.92rem' }}>{act.activity_type}</strong>
-                      <span
-                        style={{
-                          fontSize: '0.7rem',
-                          backgroundColor: '#21262d',
-                          color: '#58a6ff',
-                          padding: '2px 8px',
-                          borderRadius: '4px',
-                        }}
-                      >
-                        📍 {act.room}
-                      </span>
-                    </div>
-                    <div style={{ fontSize: '0.82rem', color: '#c9d1d9', lineHeight: 1.4, marginBottom: '8px' }}>
-                      {act.description}
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem', color: '#8b949e' }}>
-                      <span>
-                        🕐 {formatTime(act.start_time)} – {formatTime(act.end_time)}
-                      </span>
-                      <span>{eventCount} supporting sound(s)</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div style={{ padding: '14px', backgroundColor: '#161b22', borderRadius: '8px', color: '#8b949e', fontSize: '0.85rem' }}>
-              No composite activities interpreted yet. As multiple sounds occur in a room (e.g., footsteps + water + dishes in Kitchen), activity routines will form here.
-            </div>
-          )}
-        </div>
-
-        <hr style={{ border: 'none', borderTop: '1px solid #30363d', margin: '24px 0' }} />
-
-        {/* ── Caregiver Alerts Management ───────────────────────────────────── */}
-        <div id="alerts-section" style={{ marginBottom: '28px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#c9d1d9', margin: 0 }}>
-                🚨 Caregiver Alerts ({alerts.length})
-              </h3>
-              {unackAlertCount > 0 && (
-                <span
-                  style={{
-                    fontSize: '0.75rem',
-                    backgroundColor: '#4d0000',
-                    color: '#f85149',
-                    border: '1px solid #f85149',
-                    borderRadius: '999px',
-                    padding: '2px 9px',
-                    fontWeight: 700,
-                  }}
-                >
-                  ● {unackAlertCount} Pending
-                </span>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {/* Action button */}
+            {isListening ? (
               <button
-                onClick={() => setSettingsModalOpen(true)}
+                onClick={stopAudioCapture}
                 style={{
+                  width: '100%',
                   backgroundColor: '#21262d',
-                  color: '#e6edf3',
-                  border: '1px solid #30363d',
-                  borderRadius: '6px',
-                  padding: '5px 12px',
-                  fontSize: '0.78rem',
+                  color: '#f85149',
+                  border: '1px solid #da3633',
+                  borderRadius: '8px',
                   fontWeight: 600,
+                  padding: '11px 16px',
+                  fontSize: '0.9rem',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
+                  justifyContent: 'center',
+                  gap: '8px',
                 }}
               >
-                <span>⚙️ Alert & System Settings</span>
+                <span>⏹</span> Stop Listening
               </button>
+            ) : (
+              <button
+                onClick={startAudioCapture}
+                style={{
+                  width: '100%',
+                  backgroundColor: '#238636',
+                  color: '#ffffff',
+                  border: '1px solid #2ea043',
+                  borderRadius: '8px',
+                  fontWeight: 600,
+                  padding: '11px 16px',
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  boxShadow: '0 2px 8px rgba(35, 134, 54, 0.3)',
+                }}
+              >
+                <span>▶</span> Start Listening
+              </button>
+            )}
 
-              {unackAlertCount > 0 && (
-                <button
-                  onClick={handleAcknowledgeAllAlerts}
+            {/* Live Audio Volume Equalizer Meter */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#8b949e', marginBottom: '4px' }}>
+                <span>Signal Activity</span>
+                <span>{isListening ? `${audioLevel}%` : 'Off'}</span>
+              </div>
+              <div
+                style={{
+                  height: '10px',
+                  backgroundColor: '#0d1117',
+                  borderRadius: '5px',
+                  overflow: 'hidden',
+                  border: '1px solid #30363d',
+                  display: 'flex',
+                  padding: '1px',
+                  gap: '2px',
+                }}
+              >
+                {[10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((step) => {
+                  const active = isListening && audioLevel >= step;
+                  const color = step <= 50 ? '#3fb950' : step <= 80 ? '#e3b341' : '#f85149';
+                  return (
+                    <div
+                      key={step}
+                      style={{
+                        flex: 1,
+                        backgroundColor: active ? color : '#21262d',
+                        borderRadius: '2px',
+                        transition: 'background-color 0.1s ease',
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+
+            {micError && (
+              <div
+                style={{
+                  padding: '6px 10px',
+                  backgroundColor: '#271d0a',
+                  border: '1px solid #9e6a03',
+                  borderRadius: '6px',
+                  fontSize: '0.74rem',
+                  color: '#e3b341',
+                }}
+              >
+                ⚠ {micError}
+              </div>
+            )}
+
+            <div style={{ fontSize: '0.7rem', color: '#8b949e', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span>🔒</span>
+              <span>100% on-device privacy. Zero raw audio leaves this machine.</span>
+            </div>
+          </div>
+
+          {/* Column 2: Quick Sound Simulator */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#e6edf3' }}>
+                ⚡ Quick Sound Simulator
+              </div>
+              <span style={{ fontSize: '0.72rem', color: '#e3b341', backgroundColor: '#271d0a', padding: '2px 8px', borderRadius: '4px', border: '1px solid #9e6a03' }}>
+                Tagged as ⚡ Simulated
+              </span>
+            </div>
+            <div style={{ fontSize: '0.75rem', color: '#8b949e' }}>
+              Click any sound below to simulate an event in <strong>{room}</strong> and test caregiver alerts instantly:
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px' }}>
+              {[
+                { label: '🔑 Keys jingling', conf: 0.94 },
+                { label: '🚪 Door knock', sound: 'Knock', conf: 0.88 },
+                { label: '💧 Water tap', sound: 'Water tap, faucet', conf: 0.91 },
+                { label: '🗣️ Speech', conf: 0.86 },
+                { label: '👣 Footsteps', conf: 0.79 },
+                { label: '☕ Coffee maker', conf: 0.92 },
+                { label: '🍽️ Dishes & pans', sound: 'Dishes, pots, and pans', conf: 0.89 },
+                { label: '🗄️ Drawer', conf: 0.84 },
+                { label: '🪟 Glass breaking', sound: 'Glass breaking', conf: 0.96, isAlert: true, alertTag: 'High Alert' },
+                { label: '🚨 Smoke alarm', sound: 'Smoke detector, smoke alarm', conf: 0.98, isAlert: true, alertTag: 'Critical' },
+              ].map((item) => {
+                return (
+                  <button
+                    key={item.label}
+                    onClick={() => triggerSimulatedSound(item.sound || item.label.replace(/^[\p{Emoji}\s]+/u, ''), item.conf)}
+                    style={{
+                      backgroundColor: item.isAlert ? '#211215' : '#21262d',
+                      color: item.isAlert ? '#ff7b72' : '#c9d1d9',
+                      border: item.isAlert ? '1px solid #da3633' : '1px solid #30363d',
+                      borderRadius: '6px',
+                      padding: '7px 10px',
+                      fontSize: '0.75rem',
+                      fontWeight: 500,
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      transition: 'background-color 0.15s ease',
+                    }}
+                  >
+                    <span>{item.label}</span>
+                    {item.alertTag ? (
+                      <span
+                        style={{
+                          fontSize: '0.65rem',
+                          backgroundColor: '#f85149',
+                          color: '#ffffff',
+                          padding: '1px 5px',
+                          borderRadius: '3px',
+                          fontWeight: 700,
+                        }}
+                      >
+                        {item.alertTag}
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '0.68rem', color: '#8b949e' }}>{Math.round(item.conf * 100)}%</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* ── KEY METRICS ROW ──────────────────────────────────────────────── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px' }}>
+          <div style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '8px', padding: '14px 16px' }}>
+            <div style={{ color: '#8b949e', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>
+              🔔 Today's Sounds
+            </div>
+            <div style={{ color: '#ffffff', fontSize: '1.6rem', fontWeight: 700 }}>{stats.today}</div>
+            <div style={{ color: '#8b949e', fontSize: '0.72rem', marginTop: '2px' }}>
+              {stats.total} total recorded events
+            </div>
+          </div>
+
+          <div
+            onClick={() => unackAlertCount > 0 && setActiveTab('alerts')}
+            style={{
+              backgroundColor: '#161b22',
+              border: unackAlertCount > 0 ? '1px solid #f85149' : '1px solid #30363d',
+              borderRadius: '8px',
+              padding: '14px 16px',
+              cursor: unackAlertCount > 0 ? 'pointer' : 'default',
+            }}
+          >
+            <div style={{ color: '#8b949e', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>
+              🚨 Active Caregiver Alerts
+            </div>
+            <div style={{ color: unackAlertCount > 0 ? '#f85149' : '#3fb950', fontSize: '1.6rem', fontWeight: 700 }}>
+              {unackAlertCount}
+            </div>
+            <div style={{ color: unackAlertCount > 0 ? '#f85149' : '#3fb950', fontSize: '0.72rem', marginTop: '2px' }}>
+              {unackAlertCount > 0 ? '● Pending review (Click to view)' : '✓ All quiet and safe'}
+            </div>
+          </div>
+
+          <div
+            onClick={() => setActiveTab('activities')}
+            style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '8px', padding: '14px 16px', cursor: 'pointer' }}
+          >
+            <div style={{ color: '#8b949e', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>
+              🧠 Daily Routines
+            </div>
+            <div style={{ color: '#ffffff', fontSize: '1.6rem', fontWeight: 700 }}>{activities.length}</div>
+            <div style={{ color: '#58a6ff', fontSize: '0.72rem', marginTop: '2px' }}>
+              Inferred activity patterns →
+            </div>
+          </div>
+
+          <div style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '8px', padding: '14px 16px' }}>
+            <div style={{ color: '#8b949e', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>
+              📍 Monitored Location
+            </div>
+            <div style={{ color: '#ffffff', fontSize: '1.3rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {room}
+            </div>
+            <div style={{ color: isListening ? '#3fb950' : '#8b949e', fontSize: '0.72rem', marginTop: '4px' }}>
+              {isListening ? '● Live Audio Stream' : '○ Standby'}
+            </div>
+          </div>
+        </div>
+
+        {/* ── TAB 1: LIVE OVERVIEW ─────────────────────────────────────────── */}
+        {activeTab === 'overview' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: '20px' }}>
+            {/* Column 1: Live Feed */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ fontSize: '0.98rem', fontWeight: 600, color: '#e6edf3', margin: 0 }}>
+                  🔴 Live Sound Feed
+                </h3>
+                <span style={{ fontSize: '0.72rem', color: '#8b949e' }}>Auto-refreshes every 3s</span>
+              </div>
+
+              {recentEvents.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {recentEvents.map((ev) => (
+                    <div
+                      key={ev.id}
+                      style={{
+                        backgroundColor: '#161b22',
+                        border: '1px solid #30363d',
+                        borderLeft: ev.source === 'microphone' ? '3px solid #3fb950' : '3px solid #58a6ff',
+                        borderRadius: '6px',
+                        padding: '10px 14px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#ffffff' }}>
+                            🔊 {ev.sound_class}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: '0.68rem',
+                              padding: '1px 5px',
+                              borderRadius: '4px',
+                              backgroundColor: ev.source === 'microphone' ? '#0d4429' : '#21262d',
+                              color: ev.source === 'microphone' ? '#3fb950' : '#8b949e',
+                              border: '1px solid #30363d',
+                            }}
+                          >
+                            {ev.source === 'microphone' ? '🎙️ Mic' : '⚡ Sim'}
+                          </span>
+                          {ev.duration > 1 && (
+                            <span style={{ fontSize: '0.7rem', color: '#8b949e' }}>
+                              ⏱️ {ev.duration}s
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#58a6ff' }}>
+                          {Math.round(ev.confidence * 100)}%
+                        </div>
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: '#8b949e', marginTop: '3px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>🕐 {formatTime(ev.timestamp)} &nbsp;|&nbsp; 📍 {ev.room}</span>
+                        {(ev.client_session_id || ev.session_id) && (
+                          <span style={{ fontSize: '0.68rem', color: '#8b949e', fontFamily: 'monospace' }}>
+                            🆔 {(ev.client_session_id || ev.session_id || '').slice(0, 8)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div
                   style={{
-                    backgroundColor: '#238636',
-                    color: '#ffffff',
-                    border: '1px solid #2ea043',
+                    backgroundColor: '#161b22',
+                    border: '1px dashed #30363d',
+                    borderRadius: '8px',
+                    padding: '24px 20px',
+                    color: '#8b949e',
+                    fontSize: '0.85rem',
+                    textAlign: 'center',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {isListening
+                    ? '👂 Listening for sounds in real time… Speak, clap, or click any sound in the Quick Sound Simulator above!'
+                    : 'No sound events yet. Click ▶ Start Listening or test any sound in the Quick Sound Simulator.'}
+                </div>
+              )}
+            </div>
+
+            {/* Column 2: Sound Frequencies & Routine Highlights */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Sound Frequency */}
+              <div style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '8px', padding: '14px 16px' }}>
+                <h4 style={{ margin: '0 0 10px 0', fontSize: '0.88rem', fontWeight: 600, color: '#e6edf3' }}>
+                  📊 Sound Frequency
+                </h4>
+                {barChartData.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {barChartData.slice(0, 6).map((item) => {
+                      const pct = Math.max(10, Math.round((item.count / maxBarCount) * 100));
+                      return (
+                        <div key={item.sound}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.76rem', marginBottom: '2px' }}>
+                            <span style={{ color: '#e6edf3' }}>{item.sound}</span>
+                            <span style={{ color: '#58a6ff', fontWeight: 600 }}>{item.count}</span>
+                          </div>
+                          <div style={{ height: '8px', backgroundColor: '#21262d', borderRadius: '3px', overflow: 'hidden' }}>
+                            <div style={{ width: `${pct}%`, height: '100%', backgroundColor: '#58a6ff', borderRadius: '3px' }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '0.78rem', color: '#8b949e' }}>
+                    Sound frequencies will appear here as events are detected.
+                  </div>
+                )}
+              </div>
+
+              {/* Routine Highlights Card */}
+              <div style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '8px', padding: '14px 16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <h4 style={{ margin: 0, fontSize: '0.88rem', fontWeight: 600, color: '#e6edf3' }}>
+                    🧠 Daily Activity Routines
+                  </h4>
+                  <button
+                    onClick={() => setActiveTab('activities')}
+                    style={{ background: 'none', border: 'none', color: '#58a6ff', fontSize: '0.74rem', cursor: 'pointer', padding: 0 }}
+                  >
+                    View All ({activities.length}) →
+                  </button>
+                </div>
+                {activities.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {activities.slice(0, 2).map((act) => (
+                      <div key={act.id} style={{ backgroundColor: '#21262d', padding: '8px 10px', borderRadius: '6px', fontSize: '0.78rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ffffff', fontWeight: 600 }}>
+                          <span>{act.activity_type}</span>
+                          <span style={{ color: '#58a6ff', fontSize: '0.72rem' }}>📍 {act.room}</span>
+                        </div>
+                        <div style={{ color: '#8b949e', fontSize: '0.72rem', marginTop: '2px' }}>
+                          {act.description}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '0.78rem', color: '#8b949e' }}>
+                    Activity sequences (e.g. hygiene, meal prep) will automatically form here.
+                  </div>
+                )}
+              </div>
+
+              {/* Caregiver Protection Settings Quick Card */}
+              <div style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '8px', padding: '14px 16px' }}>
+                <h4 style={{ margin: '0 0 6px 0', fontSize: '0.88rem', fontWeight: 600, color: '#e6edf3' }}>
+                  🛡️ Caregiver Protection
+                </h4>
+                <div style={{ fontSize: '0.75rem', color: '#8b949e', lineHeight: 1.4, marginBottom: '8px' }}>
+                  Alerts automatically sound a 2-tone melodic chime and dispatch desktop notifications.
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={handleTestChime}
+                    style={{
+                      backgroundColor: '#21262d',
+                      color: '#58a6ff',
+                      border: '1px solid #30363d',
+                      borderRadius: '6px',
+                      padding: '5px 10px',
+                      fontSize: '0.74rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    ▶ Test Chime
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('alerts')}
+                    style={{
+                      backgroundColor: '#21262d',
+                      color: '#e6edf3',
+                      border: '1px solid #30363d',
+                      borderRadius: '6px',
+                      padding: '5px 10px',
+                      fontSize: '0.74rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Configure Alerts →
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── TAB 2: CAREGIVER ALERTS ──────────────────────────────────────── */}
+        {activeTab === 'alerts' && (
+          <div id="alerts-section" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Action Bar */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '1rem', fontWeight: 600, color: '#e6edf3' }}>
+                  Alert History ({alerts.length})
+                </span>
+                {unackAlertCount > 0 && (
+                  <span
+                    style={{
+                      fontSize: '0.72rem',
+                      backgroundColor: '#da3633',
+                      color: '#ffffff',
+                      borderRadius: '999px',
+                      padding: '2px 8px',
+                      fontWeight: 700,
+                    }}
+                  >
+                    {unackAlertCount} Pending
+                  </span>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => setNotificationSettingsOpen(!notificationSettingsOpen)}
+                  style={{
+                    backgroundColor: '#21262d',
+                    color: '#e6edf3',
+                    border: '1px solid #30363d',
                     borderRadius: '6px',
-                    padding: '5px 12px',
+                    padding: '6px 12px',
                     fontSize: '0.78rem',
                     fontWeight: 600,
                     cursor: 'pointer',
                   }}
                 >
-                  ✓ Acknowledge All ({unackAlertCount})
+                  🔔 {notificationSettingsOpen ? 'Hide Chime & Notification Config' : 'Configure Chime & Notifications'}
                 </button>
-              )}
 
-              <button
-                onClick={() => setOnlyUnackAlerts(!onlyUnackAlerts)}
+                {unackAlertCount > 0 && (
+                  <button
+                    onClick={handleAcknowledgeAllAlerts}
+                    style={{
+                      backgroundColor: '#238636',
+                      color: '#ffffff',
+                      border: '1px solid #2ea043',
+                      borderRadius: '6px',
+                      padding: '6px 12px',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    ✓ Acknowledge All ({unackAlertCount})
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setOnlyUnackAlerts(!onlyUnackAlerts)}
+                  style={{
+                    backgroundColor: onlyUnackAlerts ? '#1f6feb' : '#21262d',
+                    color: onlyUnackAlerts ? '#ffffff' : '#8b949e',
+                    border: '1px solid #30363d',
+                    borderRadius: '6px',
+                    padding: '6px 12px',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {onlyUnackAlerts ? 'Showing Pending Only' : 'Show All'}
+                </button>
+              </div>
+            </div>
+
+            {/* Notification & Chime Settings Drawer */}
+            {notificationSettingsOpen && (
+              <div
                 style={{
-                  backgroundColor: onlyUnackAlerts ? '#0d2d6e' : '#21262d',
-                  color: onlyUnackAlerts ? '#58a6ff' : '#8b949e',
+                  backgroundColor: '#161b22',
                   border: '1px solid #30363d',
-                  borderRadius: '6px',
-                  padding: '5px 12px',
-                  fontSize: '0.78rem',
-                  fontWeight: 600,
-                  cursor: 'pointer',
+                  borderRadius: '8px',
+                  padding: '16px 20px',
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '20px',
                 }}
               >
-                {onlyUnackAlerts ? 'Showing Pending Only' : 'Show All Alerts'}
-              </button>
-            </div>
-          </div>
-
-          {/* Caregiver Notification & Audible Alert Settings Drawer */}
-          {notificationSettingsOpen && (
-            <div
-              style={{
-                backgroundColor: '#161b22',
-                border: '1px solid #30363d',
-                borderRadius: '8px',
-                padding: '16px 20px',
-                marginBottom: '16px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-              }}
-            >
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                {/* 1. Browser Notifications */}
+                {/* Desktop Notifications */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontWeight: 600, color: '#e6edf3', fontSize: '0.85rem' }}>
                       🖥️ Desktop Browser Notifications
                     </span>
-                    {notificationPermission === 'granted' ? (
-                      <span
-                        style={{
-                          fontSize: '0.72rem',
-                          padding: '2px 8px',
-                          borderRadius: '4px',
-                          backgroundColor: '#0d4429',
-                          color: '#3fb950',
-                          border: '1px solid #238636',
-                          fontWeight: 600,
-                        }}
-                      >
-                        ✓ Permission Granted
-                      </span>
-                    ) : notificationPermission === 'denied' ? (
-                      <span
-                        style={{
-                          fontSize: '0.72rem',
-                          padding: '2px 8px',
-                          borderRadius: '4px',
-                          backgroundColor: '#4d0000',
-                          color: '#f85149',
-                          border: '1px solid #da3633',
-                          fontWeight: 600,
-                        }}
-                      >
-                        ✕ Blocked in Browser
-                      </span>
-                    ) : notificationPermission === 'default' ? (
-                      <span
-                        style={{
-                          fontSize: '0.72rem',
-                          padding: '2px 8px',
-                          borderRadius: '4px',
-                          backgroundColor: '#271d0a',
-                          color: '#e3b341',
-                          border: '1px solid #9e6a03',
-                          fontWeight: 600,
-                        }}
-                      >
-                        ○ Permission Needed
-                      </span>
-                    ) : (
-                      <span
-                        style={{
-                          fontSize: '0.72rem',
-                          padding: '2px 8px',
-                          borderRadius: '4px',
-                          backgroundColor: '#21262d',
-                          color: '#8b949e',
-                          border: '1px solid #30363d',
-                        }}
-                      >
-                        ○ Unsupported
-                      </span>
-                    )}
+                    <span
+                      style={{
+                        fontSize: '0.7rem',
+                        padding: '2px 6px',
+                        borderRadius: '4px',
+                        backgroundColor: notificationPermission === 'granted' ? '#0d4429' : '#21262d',
+                        color: notificationPermission === 'granted' ? '#3fb950' : '#8b949e',
+                        border: '1px solid #30363d',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {notificationPermission === 'granted' ? '✓ Permission Granted' : '○ Permission Needed'}
+                    </span>
                   </div>
-
-                  <div style={{ fontSize: '0.78rem', color: '#8b949e', lineHeight: 1.4 }}>
-                    Dispatches OS-level notifications for critical sounds (smoke alarms, fire) even when the tab is running in the background.
+                  <div style={{ fontSize: '0.76rem', color: '#8b949e', lineHeight: 1.4 }}>
+                    Dispatches OS-level notifications for critical sounds even when tab is backgrounded.
                   </div>
-
                   <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
                     <button
                       onClick={handleToggleNotifications}
@@ -1744,16 +1743,15 @@ export default function App() {
                         color: notificationsEnabled ? '#ffffff' : '#8b949e',
                         border: '1px solid #30363d',
                         borderRadius: '6px',
-                        padding: '6px 12px',
-                        fontSize: '0.75rem',
+                        padding: '6px 10px',
+                        fontSize: '0.74rem',
                         fontWeight: 600,
                         cursor: 'pointer',
                       }}
                     >
-                      {notificationsEnabled ? '🔔 Notifications: Enabled' : '🔕 Notifications: Muted'}
+                      {notificationsEnabled ? '🔔 Notifications: On' : '🔕 Notifications: Muted'}
                     </button>
-
-                    {notificationPermission !== 'granted' && notificationPermission !== 'unsupported' && (
+                    {notificationPermission !== 'granted' && (
                       <button
                         onClick={handleRequestNotificationPermission}
                         style={{
@@ -1761,16 +1759,15 @@ export default function App() {
                           color: '#ffffff',
                           border: 'none',
                           borderRadius: '6px',
-                          padding: '6px 12px',
-                          fontSize: '0.75rem',
+                          padding: '6px 10px',
+                          fontSize: '0.74rem',
                           fontWeight: 600,
                           cursor: 'pointer',
                         }}
                       >
-                        Enable Permission
+                        Grant Permission
                       </button>
                     )}
-
                     <button
                       onClick={handleTestNotification}
                       style={{
@@ -1778,8 +1775,8 @@ export default function App() {
                         color: '#58a6ff',
                         border: '1px solid #30363d',
                         borderRadius: '6px',
-                        padding: '6px 12px',
-                        fontSize: '0.75rem',
+                        padding: '6px 10px',
+                        fontSize: '0.74rem',
                         fontWeight: 600,
                         cursor: 'pointer',
                       }}
@@ -1789,7 +1786,7 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* 2. Audible Alert Chime */}
+                {/* Audible Chime */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontWeight: 600, color: '#e6edf3', fontSize: '0.85rem' }}>
@@ -1797,8 +1794,8 @@ export default function App() {
                     </span>
                     <span
                       style={{
-                        fontSize: '0.72rem',
-                        padding: '2px 8px',
+                        fontSize: '0.7rem',
+                        padding: '2px 6px',
                         borderRadius: '4px',
                         backgroundColor: chimeEnabled ? '#0d4429' : '#21262d',
                         color: chimeEnabled ? '#3fb950' : '#8b949e',
@@ -1809,12 +1806,10 @@ export default function App() {
                       {chimeEnabled ? '🔊 Sound Active' : '🔇 Muted'}
                     </span>
                   </div>
-
-                  <div style={{ fontSize: '0.78rem', color: '#8b949e', lineHeight: 1.4 }}>
-                    Plays a gentle 2-tone melodic chime via Web Audio API. Never chimes on ordinary ambient noises or repeated events.
+                  <div style={{ fontSize: '0.76rem', color: '#8b949e', lineHeight: 1.4 }}>
+                    Plays a gentle 2-tone melodic chime via Web Audio API. Never sounds for ordinary ambient noises.
                   </div>
-
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px' }}>
                     <button
                       onClick={handleToggleChime}
                       style={{
@@ -1822,15 +1817,14 @@ export default function App() {
                         color: chimeEnabled ? '#ffffff' : '#8b949e',
                         border: '1px solid #30363d',
                         borderRadius: '6px',
-                        padding: '6px 12px',
-                        fontSize: '0.75rem',
+                        padding: '6px 10px',
+                        fontSize: '0.74rem',
                         fontWeight: 600,
                         cursor: 'pointer',
                       }}
                     >
-                      {chimeEnabled ? '🔊 Chime: Enabled' : '🔇 Chime: Muted'}
+                      {chimeEnabled ? '🔊 Chime: On' : '🔇 Chime: Muted'}
                     </button>
-
                     <button
                       onClick={handleTestChime}
                       style={{
@@ -1838,15 +1832,14 @@ export default function App() {
                         color: '#58a6ff',
                         border: '1px solid #30363d',
                         borderRadius: '6px',
-                        padding: '6px 12px',
-                        fontSize: '0.75rem',
+                        padding: '6px 10px',
+                        fontSize: '0.74rem',
                         fontWeight: 600,
                         cursor: 'pointer',
                       }}
                     >
-                      ▶ Preview Chime
+                      ▶ Preview
                     </button>
-
                     <select
                       value={chimeSeverity}
                       onChange={(e) => {
@@ -1860,322 +1853,294 @@ export default function App() {
                         border: '1px solid #30363d',
                         borderRadius: '6px',
                         padding: '5px 8px',
-                        fontSize: '0.75rem',
-                        fontWeight: 500,
-                        cursor: 'pointer',
+                        fontSize: '0.74rem',
                       }}
                     >
-                      <option value="Critical">Critical Only (Smoke/Fire)</option>
-                      <option value="High">Critical & High (Smoke, Fire, Glass, Falls)</option>
+                      <option value="Critical">Critical Only</option>
+                      <option value="High">Critical & High</option>
                     </select>
                   </div>
                 </div>
               </div>
+            )}
 
-              {testNotificationFeedback && (
-                <div
-                  style={{
-                    marginTop: '12px',
-                    padding: '8px 12px',
-                    backgroundColor: testNotificationFeedback.startsWith('✓') ? '#0d4429' : '#271d0a',
-                    border: `1px solid ${testNotificationFeedback.startsWith('✓') ? '#238636' : '#9e6a03'}`,
-                    borderRadius: '6px',
-                    fontSize: '0.78rem',
-                    color: testNotificationFeedback.startsWith('✓') ? '#3fb950' : '#e3b341',
-                  }}
-                >
-                  {testNotificationFeedback}
-                </div>
-              )}
-            </div>
-          )}
+            {testNotificationFeedback && (
+              <div
+                style={{
+                  padding: '8px 12px',
+                  backgroundColor: testNotificationFeedback.startsWith('✓') ? '#0d4429' : '#271d0a',
+                  border: `1px solid ${testNotificationFeedback.startsWith('✓') ? '#238636' : '#9e6a03'}`,
+                  borderRadius: '6px',
+                  fontSize: '0.76rem',
+                  color: testNotificationFeedback.startsWith('✓') ? '#3fb950' : '#e3b341',
+                }}
+              >
+                {testNotificationFeedback}
+              </div>
+            )}
 
-          {/* Alerts Table */}
-          {alerts.length > 0 ? (
-            <div
-              style={{
-                backgroundColor: '#161b22',
-                border: '1px solid #30363d',
-                borderRadius: '8px',
-                overflow: 'hidden',
-                maxHeight: '300px',
-                overflowY: 'auto',
-              }}
-            >
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.82rem' }}>
-                <thead>
-                  <tr style={{ backgroundColor: '#21262d', color: '#8b949e', borderBottom: '1px solid #30363d' }}>
-                    <th style={{ padding: '8px 12px' }}>Severity</th>
-                    <th style={{ padding: '8px 12px' }}>Alert Type</th>
-                    <th style={{ padding: '8px 12px' }}>Room</th>
-                    <th style={{ padding: '8px 12px' }}>Timestamp</th>
-                    <th style={{ padding: '8px 12px' }}>Source</th>
-                    <th style={{ padding: '8px 12px' }}>Status</th>
-                    <th style={{ padding: '8px 12px', textAlign: 'right' }}>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {alerts.map((al) => {
-                    const severityColor =
-                      al.severity === 'Critical'
-                        ? '#f85149'
-                        : al.severity === 'High'
-                        ? '#e3b341'
-                        : al.severity === 'Medium'
-                        ? '#58a6ff'
-                        : '#8b949e';
+            {/* Alerts Table */}
+            {alerts.length > 0 ? (
+              <div style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '8px', overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#21262d', color: '#8b949e', borderBottom: '1px solid #30363d' }}>
+                      <th style={{ padding: '8px 12px' }}>Severity</th>
+                      <th style={{ padding: '8px 12px' }}>Alert Type</th>
+                      <th style={{ padding: '8px 12px' }}>Room</th>
+                      <th style={{ padding: '8px 12px' }}>Timestamp</th>
+                      <th style={{ padding: '8px 12px' }}>Source</th>
+                      <th style={{ padding: '8px 12px' }}>Status</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'right' }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {alerts
+                      .filter((al) => !onlyUnackAlerts || al.acknowledged === 0)
+                      .map((al) => {
+                        const severityColor =
+                          al.severity === 'Critical'
+                            ? '#f85149'
+                            : al.severity === 'High'
+                            ? '#e3b341'
+                            : al.severity === 'Medium'
+                            ? '#58a6ff'
+                            : '#8b949e';
 
-                    return (
-                      <tr
-                        key={al.id}
-                        id={`alert-row-${al.id}`}
-                        style={{
-                          borderBottom: '1px solid #21262d',
-                          backgroundColor: al.acknowledged ? 'transparent' : 'rgba(248, 81, 73, 0.04)',
-                        }}
-                      >
-                        <td style={{ padding: '8px 12px' }}>
-                          <span
+                        return (
+                          <tr
+                            key={al.id}
+                            id={`alert-row-${al.id}`}
                             style={{
-                              color: severityColor,
-                              fontWeight: 700,
-                              fontSize: '0.75rem',
-                              border: `1px solid ${severityColor}`,
-                              padding: '2px 6px',
-                              borderRadius: '4px',
+                              borderBottom: '1px solid #21262d',
+                              backgroundColor: al.acknowledged ? 'transparent' : 'rgba(248, 81, 73, 0.05)',
                             }}
                           >
-                            {al.severity}
-                          </span>
-                        </td>
-                        <td style={{ padding: '8px 12px', color: '#ffffff', fontWeight: 500 }}>
-                          <div>{al.alert_type}</div>
-                          <div style={{ fontSize: '0.72rem', color: '#8b949e', marginTop: '2px' }}>
-                            {al.description}
-                          </div>
-                        </td>
-                        <td style={{ padding: '8px 12px', color: '#c9d1d9' }}>
-                          {al.room ? `📍 ${al.room}` : '—'}
-                        </td>
-                        <td style={{ padding: '8px 12px', color: '#8b949e' }}>{formatDateTime(al.timestamp)}</td>
-                        <td style={{ padding: '8px 12px' }}>
-                          <span
-                            style={{
-                              fontSize: '0.72rem',
-                              padding: '2px 6px',
-                              borderRadius: '4px',
-                              backgroundColor: al.source === 'microphone' ? '#0d4429' : '#21262d',
-                              color: al.source === 'microphone' ? '#3fb950' : '#e3b341',
-                              border: '1px solid #30363d',
-                            }}
-                          >
-                            {al.source === 'microphone' ? '🎙️ Mic' : '⚡ Sim'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '8px 12px' }}>
-                          {al.acknowledged ? (
-                            <span style={{ color: '#3fb950', fontSize: '0.75rem', fontWeight: 500 }}>✓ Acknowledged</span>
-                          ) : (
-                            <span style={{ color: '#f85149', fontWeight: 600, fontSize: '0.75rem' }}>● Pending</span>
-                          )}
-                        </td>
-                        <td style={{ padding: '8px 12px', textAlign: 'right' }}>
-                          {!al.acknowledged && (
-                            <button
-                              onClick={() => handleAcknowledgeAlert(al.id)}
-                              style={{
-                                backgroundColor: '#21262d',
-                                color: '#58a6ff',
-                                border: '1px solid #30363d',
-                                borderRadius: '4px',
-                                padding: '4px 8px',
-                                fontSize: '0.72rem',
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                              }}
-                            >
-                              Acknowledge
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div style={{ padding: '14px', backgroundColor: '#161b22', borderRadius: '8px', color: '#8b949e', fontSize: '0.85rem' }}>
-              No alerts currently recorded. Urgent ambient sounds (e.g. smoke alarm, broken glass, loud crash) will generate notifications here.
-            </div>
-          )}
-        </div>
-
-
-        <hr style={{ border: 'none', borderTop: '1px solid #30363d', margin: '24px 0' }} />
-
-        {/* ── Time-of-Day Insights & Room Distribution ─────────────────────── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '28px' }}>
-          {/* Time of Day */}
-          <div style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '10px', padding: '16px 18px' }}>
-            <h4 style={{ margin: '0 0 12px 0', fontSize: '0.95rem', color: '#c9d1d9' }}>
-              🕒 Time-of-Day Activity Patterns
-            </h4>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', textAlign: 'center' }}>
-              <div style={{ backgroundColor: '#21262d', padding: '10px 8px', borderRadius: '6px' }}>
-                <div style={{ fontSize: '0.7rem', color: '#8b949e' }}>Morning (6-12)</div>
-                <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#e6edf3', marginTop: '4px' }}>
-                  {stats.timeOfDay?.morning || 0}
-                </div>
+                            <td style={{ padding: '8px 12px' }}>
+                              <span
+                                style={{
+                                  color: severityColor,
+                                  fontWeight: 700,
+                                  fontSize: '0.72rem',
+                                  border: `1px solid ${severityColor}`,
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                }}
+                              >
+                                {al.severity}
+                              </span>
+                            </td>
+                            <td style={{ padding: '8px 12px', color: '#ffffff', fontWeight: 500 }}>
+                              <div>{al.alert_type}</div>
+                              <div style={{ fontSize: '0.72rem', color: '#8b949e', marginTop: '2px' }}>
+                                {al.description}
+                              </div>
+                            </td>
+                            <td style={{ padding: '8px 12px', color: '#c9d1d9' }}>
+                              {al.room ? `📍 ${al.room}` : '—'}
+                            </td>
+                            <td style={{ padding: '8px 12px', color: '#8b949e' }}>{formatDateTime(al.timestamp)}</td>
+                            <td style={{ padding: '8px 12px' }}>
+                              <span
+                                style={{
+                                  fontSize: '0.7rem',
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  backgroundColor: al.source === 'microphone' ? '#0d4429' : '#21262d',
+                                  color: al.source === 'microphone' ? '#3fb950' : '#e3b341',
+                                  border: '1px solid #30363d',
+                                }}
+                              >
+                                {al.source === 'microphone' ? '🎙️ Mic' : '⚡ Sim'}
+                              </span>
+                            </td>
+                            <td style={{ padding: '8px 12px' }}>
+                              {al.acknowledged ? (
+                                <span style={{ color: '#3fb950', fontSize: '0.75rem', fontWeight: 500 }}>✓ Acknowledged</span>
+                              ) : (
+                                <span style={{ color: '#f85149', fontWeight: 600, fontSize: '0.75rem' }}>● Pending</span>
+                              )}
+                            </td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right' }}>
+                              {!al.acknowledged && (
+                                <button
+                                  onClick={() => handleAcknowledgeAlert(al.id)}
+                                  style={{
+                                    backgroundColor: '#21262d',
+                                    color: '#58a6ff',
+                                    border: '1px solid #30363d',
+                                    borderRadius: '4px',
+                                    padding: '4px 8px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  Acknowledge
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
               </div>
-              <div style={{ backgroundColor: '#21262d', padding: '10px 8px', borderRadius: '6px' }}>
-                <div style={{ fontSize: '0.7rem', color: '#8b949e' }}>Afternoon (12-18)</div>
-                <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#e6edf3', marginTop: '4px' }}>
-                  {stats.timeOfDay?.afternoon || 0}
-                </div>
+            ) : (
+              <div style={{ padding: '24px', backgroundColor: '#161b22', borderRadius: '8px', color: '#8b949e', textAlign: 'center', fontSize: '0.85rem' }}>
+                ✓ No caregiver alerts recorded. Urgent sounds (e.g., smoke alarm, glass breaking) will appear here.
               </div>
-              <div style={{ backgroundColor: '#21262d', padding: '10px 8px', borderRadius: '6px' }}>
-                <div style={{ fontSize: '0.7rem', color: '#8b949e' }}>Evening (18-24)</div>
-                <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#e6edf3', marginTop: '4px' }}>
-                  {stats.timeOfDay?.evening || 0}
-                </div>
-              </div>
-              <div style={{ backgroundColor: '#21262d', padding: '10px 8px', borderRadius: '6px' }}>
-                <div style={{ fontSize: '0.7rem', color: '#8b949e' }}>Night (0-6)</div>
-                <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#e6edf3', marginTop: '4px' }}>
-                  {stats.timeOfDay?.night || 0}
-                </div>
-              </div>
-            </div>
+            )}
           </div>
+        )}
 
-          {/* Room Distribution */}
-          <div style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '10px', padding: '16px 18px' }}>
-            <h4 style={{ margin: '0 0 12px 0', fontSize: '0.95rem', color: '#c9d1d9' }}>
-              📍 Room-wise Distribution
-            </h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {stats.roomDistribution && stats.roomDistribution.length > 0 ? (
-                stats.roomDistribution.slice(0, 4).map((r) => (
-                  <div key={r.room}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '2px' }}>
-                      <span style={{ color: '#e6edf3' }}>{r.room}</span>
-                      <span style={{ color: '#8b949e' }}>
-                        {r.count} ({r.percentage}%)
-                      </span>
-                    </div>
-                    <div style={{ height: '6px', backgroundColor: '#21262d', borderRadius: '3px', overflow: 'hidden' }}>
-                      <div style={{ width: `${r.percentage}%`, height: '100%', backgroundColor: '#58a6ff' }} />
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div style={{ color: '#8b949e', fontSize: '0.8rem' }}>No room data yet.</div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <hr style={{ border: 'none', borderTop: '1px solid #30363d', margin: '24px 0' }} />
-
-        {/* ── Search Sound Timeline ────────────────────────────────────────── */}
-        <div style={{ marginBottom: '28px' }}>
-          <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#c9d1d9', marginTop: 0, marginBottom: '14px' }}>
-            🔍 Search Sound Timeline
-          </h3>
-
-          <div style={{ display: 'flex', gap: '10px', marginBottom: '14px' }}>
-            <input
-              type="text"
-              placeholder="e.g. door, keys, speech, cough, water…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{
-                flex: 1,
-                backgroundColor: '#21262d',
-                border: '1px solid #30363d',
-                color: '#e6edf3',
-                borderRadius: '8px',
-                padding: '9px 12px',
-                fontSize: '0.88rem',
-                outline: 'none',
-              }}
-            />
-            <select
-              value={searchRoom}
-              onChange={(e) => setSearchRoom(e.target.value)}
-              style={{
-                width: '160px',
-                backgroundColor: '#21262d',
-                color: '#e6edf3',
-                border: '1px solid #30363d',
-                borderRadius: '8px',
-                padding: '9px 10px',
-                fontSize: '0.88rem',
-                outline: 'none',
-                cursor: 'pointer',
-              }}
-            >
-              <option value="All Rooms">All Rooms</option>
-              {allRooms.map((r) => (
-                <option key={r} value={r}>
-                  {r}
-                </option>
-              ))}
-            </select>
-            <select
-              value={searchSource}
-              onChange={(e) => setSearchSource(e.target.value)}
-              style={{
-                width: '130px',
-                backgroundColor: '#21262d',
-                color: '#e6edf3',
-                border: '1px solid #30363d',
-                borderRadius: '8px',
-                padding: '9px 10px',
-                fontSize: '0.88rem',
-                outline: 'none',
-                cursor: 'pointer',
-              }}
-            >
-              <option value="All">All Sources</option>
-              <option value="microphone">Real Mic</option>
-              <option value="simulator">Simulator</option>
-            </select>
-            <select
-              value={searchSession}
-              onChange={(e) => setSearchSession(e.target.value)}
-              style={{
-                width: '150px',
-                backgroundColor: '#21262d',
-                color: '#e6edf3',
-                border: '1px solid #30363d',
-                borderRadius: '8px',
-                padding: '9px 10px',
-                fontSize: '0.88rem',
-                outline: 'none',
-                cursor: 'pointer',
-              }}
-            >
-              <option value="All">All Sessions</option>
-              <option value={clientSessionId}>Current Tab</option>
-            </select>
-          </div>
-
-          {searchQuery.trim() || searchRoom !== 'All Rooms' || searchSource !== 'All' || searchSession !== 'All' ? (
-            searchResults.length > 0 ? (
+        {/* ── TAB 3: DAILY ACTIVITIES ──────────────────────────────────────── */}
+        {activeTab === 'activities' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div
-                  style={{
-                    backgroundColor: '#161b22',
-                    border: '1px solid #30363d',
-                    borderRadius: '8px',
-                    overflow: 'hidden',
-                    maxHeight: '300px',
-                    overflowY: 'auto',
-                  }}
-                >
-                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.82rem' }}>
+                <h3 style={{ fontSize: '0.98rem', fontWeight: 600, color: '#e6edf3', margin: 0 }}>
+                  🧠 Interpreted Daily Routines ({activities.length})
+                </h3>
+                <div style={{ fontSize: '0.78rem', color: '#8b949e', marginTop: '2px' }}>
+                  EchoTrace groups sequences of related domestic sounds into daily habits (meal prep, hygiene, transitions).
+                </div>
+              </div>
+            </div>
+
+            {activities.length > 0 ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '12px' }}>
+                {activities.map((act) => {
+                  const eventCount = JSON.parse(act.related_event_ids || '[]').length;
+                  return (
+                    <div
+                      key={act.id}
+                      style={{
+                        backgroundColor: '#161b22',
+                        border: '1px solid #30363d',
+                        borderRadius: '8px',
+                        padding: '14px 16px',
+                        borderLeft: '3px solid #3fb950',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <strong style={{ color: '#ffffff', fontSize: '0.92rem' }}>{act.activity_type}</strong>
+                        <span
+                          style={{
+                            fontSize: '0.7rem',
+                            backgroundColor: '#21262d',
+                            color: '#58a6ff',
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                          }}
+                        >
+                          📍 {act.room}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: '#c9d1d9', lineHeight: 1.4, marginBottom: '8px' }}>
+                        {act.description}
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem', color: '#8b949e' }}>
+                        <span>🕐 {formatTime(act.start_time)} – {formatTime(act.end_time)}</span>
+                        <span>{eventCount} supporting sound(s)</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ padding: '24px', backgroundColor: '#161b22', borderRadius: '8px', color: '#8b949e', textAlign: 'center', fontSize: '0.85rem' }}>
+                No daily activities interpreted yet. As multiple sounds occur in a room (e.g. footsteps + water + dishes in Kitchen), routine patterns will form here.
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── TAB 4: HISTORY & SEARCH ──────────────────────────────────────── */}
+        {activeTab === 'history' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Filter Bar */}
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <input
+                type="text"
+                placeholder="Search sounds (e.g., door, keys, speech, water)…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  flex: 1,
+                  minWidth: '200px',
+                  backgroundColor: '#21262d',
+                  border: '1px solid #30363d',
+                  color: '#e6edf3',
+                  borderRadius: '6px',
+                  padding: '8px 12px',
+                  fontSize: '0.85rem',
+                  outline: 'none',
+                }}
+              />
+              <select
+                value={searchRoom}
+                onChange={(e) => setSearchRoom(e.target.value)}
+                style={{
+                  backgroundColor: '#21262d',
+                  color: '#e6edf3',
+                  border: '1px solid #30363d',
+                  borderRadius: '6px',
+                  padding: '8px 10px',
+                  fontSize: '0.85rem',
+                  outline: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="All Rooms">All Rooms</option>
+                {allRooms.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={searchSource}
+                onChange={(e) => setSearchSource(e.target.value)}
+                style={{
+                  backgroundColor: '#21262d',
+                  color: '#e6edf3',
+                  border: '1px solid #30363d',
+                  borderRadius: '6px',
+                  padding: '8px 10px',
+                  fontSize: '0.85rem',
+                  outline: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="All">All Sources</option>
+                <option value="microphone">Real Mic</option>
+                <option value="simulator">Simulator</option>
+              </select>
+              <select
+                value={searchSession}
+                onChange={(e) => setSearchSession(e.target.value)}
+                style={{
+                  backgroundColor: '#21262d',
+                  color: '#e6edf3',
+                  border: '1px solid #30363d',
+                  borderRadius: '6px',
+                  padding: '8px 10px',
+                  fontSize: '0.85rem',
+                  outline: 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="All">All Sessions</option>
+                <option value={clientSessionId}>Current Tab</option>
+              </select>
+            </div>
+
+            {/* Search Results Table */}
+            {searchQuery.trim() || searchRoom !== 'All Rooms' || searchSource !== 'All' || searchSession !== 'All' ? (
+              searchResults.length > 0 ? (
+                <div style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '8px', overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
                     <thead>
                       <tr style={{ backgroundColor: '#21262d', color: '#8b949e', borderBottom: '1px solid #30363d' }}>
                         <th style={{ padding: '8px 12px' }}>Timestamp</th>
@@ -2214,117 +2179,294 @@ export default function App() {
                     </tbody>
                   </table>
                 </div>
-                <div style={{ fontSize: '0.78rem', color: '#8b949e', marginTop: '6px' }}>
-                  Found <strong style={{ color: '#e6edf3' }}>{searchResults.length}</strong> result(s)
+              ) : (
+                <div style={{ padding: '16px', backgroundColor: '#161b22', borderRadius: '8px', color: '#8b949e', textAlign: 'center', fontSize: '0.82rem' }}>
+                  No events found matching the current search filters.
                 </div>
-              </div>
-            ) : (
-              <div
+              )
+            ) : null}
+
+            {/* Full SQLite Event Log Expander */}
+            <div style={{ border: '1px solid #30363d', borderRadius: '8px', overflow: 'hidden' }}>
+              <button
+                onClick={() => {
+                  const next = !fullLogOpen;
+                  setFullLogOpen(next);
+                  if (next) refreshAllEvents();
+                }}
                 style={{
-                  backgroundColor: '#271d0a',
-                  border: '1px solid #9e6a03',
-                  borderRadius: '8px',
-                  padding: '10px 14px',
+                  width: '100%',
+                  backgroundColor: '#161b22',
                   color: '#e6edf3',
-                  fontSize: '0.82rem',
+                  border: 'none',
+                  padding: '10px 14px',
+                  textAlign: 'left',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
                 }}
               >
-                No events found matching the current search filters.
-              </div>
-            )
-          ) : (
-            <div style={{ color: '#8b949e', fontSize: '0.8rem' }}>
-              Type a keyword above, choose a room, or select a source to search the full sound timeline.
-            </div>
-          )}
-        </div>
-
-        <hr style={{ border: 'none', borderTop: '1px solid #30363d', margin: '24px 0' }} />
-
-        {/* ── Full Event Log (last 100) ─────────────────────────────────────── */}
-        <div style={{ border: '1px solid #30363d', borderRadius: '8px', overflow: 'hidden', marginBottom: '24px' }}>
-          <button
-            onClick={() => {
-              const next = !fullLogOpen;
-              setFullLogOpen(next);
-              if (next) refreshAllEvents();
-            }}
-            style={{
-              width: '100%',
-              backgroundColor: '#161b22',
-              color: '#e6edf3',
-              border: 'none',
-              padding: '12px 16px',
-              textAlign: 'left',
-              fontSize: '0.92rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
-            <span>📜 Full Event Log from SQLite (last 100)</span>
-            <span style={{ color: '#8b949e', fontSize: '0.82rem' }}>{fullLogOpen ? '▲' : '▼'}</span>
-          </button>
-          {fullLogOpen && (
-            <div style={{ backgroundColor: '#0d1117', borderTop: '1px solid #30363d', maxHeight: '360px', overflowY: 'auto' }}>
-              {allEvents.length > 0 ? (
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.82rem' }}>
-                  <thead>
-                    <tr style={{ backgroundColor: '#161b22', color: '#8b949e', borderBottom: '1px solid #30363d' }}>
-                      <th style={{ padding: '8px 12px' }}>ID</th>
-                      <th style={{ padding: '8px 12px' }}>Timestamp</th>
-                      <th style={{ padding: '8px 12px' }}>Room</th>
-                      <th style={{ padding: '8px 12px' }}>Sound Class</th>
-                      <th style={{ padding: '8px 12px' }}>Duration</th>
-                      <th style={{ padding: '8px 12px' }}>Source</th>
-                      <th style={{ padding: '8px 12px', textAlign: 'right' }}>Confidence</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {allEvents.map((ev) => (
-                      <tr key={ev.id} style={{ borderBottom: '1px solid #21262d' }}>
-                        <td style={{ padding: '8px 12px', color: '#8b949e' }}>#{ev.id}</td>
-                        <td style={{ padding: '8px 12px', color: '#8b949e' }}>{formatDateTime(ev.timestamp)}</td>
-                        <td style={{ padding: '8px 12px', color: '#e6edf3' }}>{ev.room}</td>
-                        <td style={{ padding: '8px 12px', color: '#58a6ff', fontWeight: 500 }}>{ev.sound_class}</td>
-                        <td style={{ padding: '8px 12px', color: '#8b949e' }}>{ev.duration}s</td>
-                        <td style={{ padding: '8px 12px' }}>
-                          <span style={{ color: ev.source === 'microphone' ? '#3fb950' : '#8b949e' }}>
-                            {ev.source === 'microphone' ? '🎙️ Mic' : '⚡ Sim'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '8px 12px', textAlign: 'right', color: '#3fb950' }}>
-                          {Math.round(ev.confidence * 100)}%
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <div style={{ padding: '16px', color: '#8b949e', fontSize: '0.85rem' }}>No events recorded yet.</div>
+                <span>📜 Full Event Log from SQLite (last 100)</span>
+                <span style={{ color: '#8b949e', fontSize: '0.8rem' }}>{fullLogOpen ? '▲ Hide' : '▼ View'}</span>
+              </button>
+              {fullLogOpen && (
+                <div style={{ backgroundColor: '#0d1117', borderTop: '1px solid #30363d', maxHeight: '360px', overflowY: 'auto' }}>
+                  {allEvents.length > 0 ? (
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.8rem' }}>
+                      <thead>
+                        <tr style={{ backgroundColor: '#161b22', color: '#8b949e', borderBottom: '1px solid #30363d' }}>
+                          <th style={{ padding: '8px 12px' }}>ID</th>
+                          <th style={{ padding: '8px 12px' }}>Timestamp</th>
+                          <th style={{ padding: '8px 12px' }}>Room</th>
+                          <th style={{ padding: '8px 12px' }}>Sound Class</th>
+                          <th style={{ padding: '8px 12px' }}>Duration</th>
+                          <th style={{ padding: '8px 12px' }}>Source</th>
+                          <th style={{ padding: '8px 12px', textAlign: 'right' }}>Confidence</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {allEvents.map((ev) => (
+                          <tr key={ev.id} style={{ borderBottom: '1px solid #21262d' }}>
+                            <td style={{ padding: '8px 12px', color: '#8b949e' }}>#{ev.id}</td>
+                            <td style={{ padding: '8px 12px', color: '#8b949e' }}>{formatDateTime(ev.timestamp)}</td>
+                            <td style={{ padding: '8px 12px', color: '#e6edf3' }}>{ev.room}</td>
+                            <td style={{ padding: '8px 12px', color: '#58a6ff', fontWeight: 500 }}>{ev.sound_class}</td>
+                            <td style={{ padding: '8px 12px', color: '#8b949e' }}>{ev.duration}s</td>
+                            <td style={{ padding: '8px 12px' }}>
+                              <span style={{ color: ev.source === 'microphone' ? '#3fb950' : '#8b949e' }}>
+                                {ev.source === 'microphone' ? '🎙️ Mic' : '⚡ Sim'}
+                              </span>
+                            </td>
+                            <td style={{ padding: '8px 12px', textAlign: 'right', color: '#3fb950' }}>
+                              {Math.round(ev.confidence * 100)}%
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div style={{ padding: '16px', color: '#8b949e', fontSize: '0.82rem' }}>No events recorded yet.</div>
+                  )}
+                </div>
               )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* ── Footer ───────────────────────────────────────────────────────── */}
+        {/* ── TAB 5: INSIGHTS & ANALYTICS ─────────────────────────────────── */}
+        {activeTab === 'analytics' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+            {/* Time of Day */}
+            <div style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '8px', padding: '16px 18px' }}>
+              <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: '#e6edf3' }}>
+                🕒 Time-of-Day Activity Patterns
+              </h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', textAlign: 'center' }}>
+                <div style={{ backgroundColor: '#21262d', padding: '10px 8px', borderRadius: '6px' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#8b949e' }}>Morning (6-12)</div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#e6edf3', marginTop: '4px' }}>
+                    {stats.timeOfDay?.morning || 0}
+                  </div>
+                </div>
+                <div style={{ backgroundColor: '#21262d', padding: '10px 8px', borderRadius: '6px' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#8b949e' }}>Afternoon (12-18)</div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#e6edf3', marginTop: '4px' }}>
+                    {stats.timeOfDay?.afternoon || 0}
+                  </div>
+                </div>
+                <div style={{ backgroundColor: '#21262d', padding: '10px 8px', borderRadius: '6px' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#8b949e' }}>Evening (18-24)</div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#e6edf3', marginTop: '4px' }}>
+                    {stats.timeOfDay?.evening || 0}
+                  </div>
+                </div>
+                <div style={{ backgroundColor: '#21262d', padding: '10px 8px', borderRadius: '6px' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#8b949e' }}>Night (0-6)</div>
+                  <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#e6edf3', marginTop: '4px' }}>
+                    {stats.timeOfDay?.night || 0}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Room Distribution */}
+            <div style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '8px', padding: '16px 18px' }}>
+              <h4 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: '#e6edf3' }}>
+                📍 Room-wise Sound Distribution
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {stats.roomDistribution && stats.roomDistribution.length > 0 ? (
+                  stats.roomDistribution.slice(0, 5).map((r) => (
+                    <div key={r.room}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.74rem', marginBottom: '2px' }}>
+                        <span style={{ color: '#e6edf3' }}>{r.room}</span>
+                        <span style={{ color: '#8b949e' }}>
+                          {r.count} ({r.percentage}%)
+                        </span>
+                      </div>
+                      <div style={{ height: '6px', backgroundColor: '#21262d', borderRadius: '3px', overflow: 'hidden' }}>
+                        <div style={{ width: `${r.percentage}%`, height: '100%', backgroundColor: '#58a6ff' }} />
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ color: '#8b949e', fontSize: '0.78rem' }}>No room data yet.</div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Footer */}
         <footer
           style={{
             textAlign: 'center',
             color: '#484f58',
-            fontSize: '0.78rem',
-            marginTop: '32px',
+            fontSize: '0.74rem',
+            marginTop: 'auto',
             paddingTop: '16px',
             borderTop: '1px solid #21262d',
           }}
         >
-          EchoTrace · All audio processed on-device · SQLite local storage · No audio leaves this machine
+          EchoTrace · 100% on-device AI classification · SQLite local persistence · No raw audio is ever recorded or uploaded
         </footer>
       </main>
 
-      {/* ── Reset Confirmation Modal ───────────────────────────────────────── */}
+      {/* ── PRIVACY GUARANTEE MODAL ────────────────────────────────────────── */}
+      {infoModalOpen === 'privacy' && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#161b22',
+              border: '1px solid #30363d',
+              borderRadius: '10px',
+              padding: '24px',
+              maxWidth: '480px',
+              width: '90%',
+            }}
+          >
+            <h3 style={{ margin: '0 0 10px 0', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>🔒</span> Privacy & Security Architecture
+            </h3>
+            <p style={{ fontSize: '0.85rem', color: '#c9d1d9', lineHeight: 1.6, margin: '0 0 14px 0' }}>
+              EchoTrace was built specifically for privacy in residential and caregiving environments:
+            </p>
+            <ul style={{ fontSize: '0.82rem', color: '#8b949e', lineHeight: 1.6, paddingLeft: '20px', margin: '0 0 20px 0' }}>
+              <li><strong>Zero Raw Audio Storage:</strong> Audio frames are processed entirely in volatile RAM (1-second windows) and immediately discarded.</li>
+              <li><strong>No Cloud Transmissions:</strong> Neural network inference runs locally on this device via Google YAMNet.</li>
+              <li><strong>Metadata Only:</strong> Only the sound category (e.g., "Knock"), confidence score, timestamp, and room label are stored in the local SQLite database (<code style={{ color: '#58a6ff' }}>echotrace.db</code>).</li>
+            </ul>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setInfoModalOpen(null)}
+                style={{
+                  backgroundColor: '#21262d',
+                  color: '#e6edf3',
+                  border: '1px solid #30363d',
+                  borderRadius: '6px',
+                  padding: '8px 16px',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MONITORED SOUND CLASSES MODAL ──────────────────────────────────── */}
+      {infoModalOpen === 'monitored' && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: '#161b22',
+              border: '1px solid #30363d',
+              borderRadius: '10px',
+              padding: '24px',
+              maxWidth: '520px',
+              width: '90%',
+            }}
+          >
+            <h3 style={{ margin: '0 0 8px 0', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>📋</span> Monitored Acoustic Classes ({TARGET_CLASSES.length})
+            </h3>
+            <p style={{ fontSize: '0.8rem', color: '#8b949e', margin: '0 0 14px 0' }}>
+              EchoTrace filters raw 521 AudioSet classifications into focused domestic and safety events:
+            </p>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '8px',
+                maxHeight: '260px',
+                overflowY: 'auto',
+                padding: '8px',
+                backgroundColor: '#0d1117',
+                borderRadius: '6px',
+                border: '1px solid #30363d',
+                marginBottom: '16px',
+                fontSize: '0.78rem',
+                color: '#c9d1d9',
+              }}
+            >
+              {[...TARGET_CLASSES].sort().map((c) => (
+                <div key={c} style={{ padding: '2px 4px' }}>• {c}</div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setInfoModalOpen(null)}
+                style={{
+                  backgroundColor: '#21262d',
+                  color: '#e6edf3',
+                  border: '1px solid #30363d',
+                  borderRadius: '6px',
+                  padding: '8px 16px',
+                  fontSize: '0.85rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── RESET CONFIRMATION MODAL ───────────────────────────────────────── */}
       {resetModalOpen && (
         <div
           style={{
@@ -2389,7 +2531,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ── Clear History Confirmation Modal ───────────────────────────────── */}
+      {/* ── CLEAR HISTORY CONFIRMATION MODAL ───────────────────────────────── */}
       {clearModalOpen && (
         <div
           style={{
