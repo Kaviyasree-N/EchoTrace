@@ -1,12 +1,15 @@
-# EchoTrace Configuration
-# ========================
-# Core audio settings
-SAMPLE_RATE = 16000          # YAMNet expects 16kHz mono audio
-CHUNK_DURATION = 1           # seconds per analysis chunk
-CONFIDENCE_THRESHOLD = 0.4   # Minimum confidence to log an event
+"""
+ai-service/config.py – Configuration for EchoTrace YAMNet AI Service
+"""
 
-# Target sound classes to watch for (subset of AudioSet labels)
-# These are common household sounds relevant to dementia caregiving context
+PORT = 5000
+HOST = "0.0.0.0"
+
+SAMPLE_RATE = 16000          # YAMNet standard 16kHz mono audio
+CHUNK_DURATION = 1.0         # seconds per classification window
+CONFIDENCE_THRESHOLD = 0.40  # Minimum confidence to accept a detection
+
+# Target AudioSet / YAMNet sound classes relevant to dementia caregiving
 TARGET_CLASSES = [
     # Door / access sounds
     "Door",
@@ -53,21 +56,19 @@ TARGET_CLASSES = [
     "Speech",
     "Conversation",
 
-    # Appliances
+    # Appliances & facilities
     "Vacuum cleaner",
     "Washing machine",
     "Toilet flush",
     "Shower",
     "Bathtub (filling or washing)",
+
+    # Emergency / impacts
+    "Glass breaking",
+    "Loud impacts",
 ]
 
-# SQLite database file
-DB_PATH = "echotrace.db"
-
-# YAMNet model URL on TensorFlow Hub
 YAMNET_MODEL_URL = "https://tfhub.dev/google/yamnet/1"
-
-# YAMNet class map CSV (AudioSet ontology)
 YAMNET_CLASS_MAP_URL = (
     "https://raw.githubusercontent.com/tensorflow/models/master/"
     "research/audioset/yamnet/yamnet_class_map.csv"

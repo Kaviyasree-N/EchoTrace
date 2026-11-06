@@ -1,12 +1,7 @@
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-*.egg-info/
+# Node.js
+node_modules/
 dist/
-build/
-.eggs/
+
 
 # Virtual environments
 .venv/

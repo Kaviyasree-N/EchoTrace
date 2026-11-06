@@ -1,0 +1,6 @@
+{
+  "name": "EchoTrace",
+  "description": "Privacy-first ambient sound memory assistant for dementia caregivers",
+  "permissions": [],
+  "capabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
