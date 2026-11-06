@@ -7,6 +7,8 @@ export interface SoundEvent {
   duration: number;
   source: 'microphone' | 'simulator';
   session_id?: string;
+  client_session_id?: string | null;
+  clientSessionId?: string;
 }
 
 export interface Activity {
@@ -75,3 +77,16 @@ export interface AiStatus {
   classes_count?: number;
   details?: any;
 }
+
+export interface AppSettings {
+  confidence_threshold: number;
+  duplicate_cooldown_sec: number;
+  continuous_grouping_window_sec: number;
+  activity_window_min: number;
+  alerts_critical_enabled: boolean;
+  alerts_high_enabled: boolean;
+  notifications_enabled: boolean;
+  chime_enabled: boolean;
+  chime_severity: 'Critical' | 'High';
+}
+

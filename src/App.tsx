@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ROOMS, TARGET_CLASSES } from './config';
-import type { SoundEvent, Activity, Alert, StatsData, AiStatus, NotificationPermissionState } from './types';
+import type { SoundEvent, Activity, Alert, StatsData, AiStatus, NotificationPermissionState, AppSettings } from './types';
+import SettingsModal from './components/SettingsModal';
 import { playAlertChime, unlockAudioContext } from './utils/alertChime';
 import {
   getNotificationPermissionStatus,
@@ -9,7 +10,39 @@ import {
 } from './utils/notificationService';
 
 
+function getOrCreateClientSessionId(): string {
+  const SESSION_KEY = 'echotrace_client_session_id';
+  try {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      const stored = window.sessionStorage.getItem(SESSION_KEY);
+      if (stored && typeof stored === 'string' && stored.trim().length > 0) {
+        return stored.trim();
+      }
+      let newId: string;
+      if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        newId = crypto.randomUUID();
+      } else {
+        newId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+          const r = (Math.random() * 16) | 0;
+          const v = c === 'x' ? r : (r & 0x3) | 0x8;
+          return v.toString(16);
+        });
+      }
+      window.sessionStorage.setItem(SESSION_KEY, newId);
+      return newId;
+    }
+  } catch {
+    // sessionStorage might be restricted in some iframe contexts
+  }
+  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : 'session-' + Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 10);
+}
+
 export default function App() {
+  // Client session identification (unique per independent tab session, persistent across reloads)
+  const [clientSessionId] = useState<string>(() => getOrCreateClientSessionId());
+
   // Navigation & room state
   const [room, setRoom] = useState<string>('Living Room');
   const [isListening, setIsListening] = useState<boolean>(false);
@@ -45,6 +78,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchRoom, setSearchRoom] = useState<string>('All Rooms');
   const [searchSource, setSearchSource] = useState<string>('All');
+  const [searchSession, setSearchSession] = useState<string>('All');
   const [searchResults, setSearchResults] = useState<SoundEvent[]>([]);
   const [allRooms, setAllRooms] = useState<string[]>([...ROOMS]);
 
@@ -56,6 +90,7 @@ export default function App() {
   const [resetModalOpen, setResetModalOpen] = useState<boolean>(false);
   const [clearModalOpen, setClearModalOpen] = useState<boolean>(false);
   const [onlyUnackAlerts, setOnlyUnackAlerts] = useState<boolean>(false);
+  const [settingsModalOpen, setSettingsModalOpen] = useState<boolean>(false);
 
   // Caregiver Alert Notification & Chime settings
   const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(() => {
@@ -303,6 +338,17 @@ export default function App() {
     }
   };
 
+  const handleSettingsSaved = (newSettings: AppSettings) => {
+    setNotificationsEnabled(newSettings.notifications_enabled);
+    setChimeEnabled(newSettings.chime_enabled);
+    setChimeSeverity(newSettings.chime_severity);
+    refreshStats();
+    refreshRecentEvents();
+    refreshActivities();
+    refreshAlerts();
+    if (fullLogOpen) refreshAllEvents();
+  };
+
 
   // Initial load
   useEffect(() => {
@@ -337,7 +383,7 @@ export default function App() {
 
   // Search effect with debounce
   useEffect(() => {
-    if (!searchQuery.trim() && searchRoom === 'All Rooms' && searchSource === 'All') {
+    if (!searchQuery.trim() && searchRoom === 'All Rooms' && searchSource === 'All' && searchSession === 'All') {
       setSearchResults([]);
       return;
     }
@@ -348,6 +394,7 @@ export default function App() {
         if (searchQuery.trim()) params.set('q', searchQuery.trim());
         if (searchRoom !== 'All Rooms') params.set('room', searchRoom);
         if (searchSource !== 'All') params.set('source', searchSource);
+        if (searchSession !== 'All') params.set('session', searchSession);
         params.set('limit', '200');
 
         const res = await fetch(`/api/events?${params.toString()}`);
@@ -361,7 +408,7 @@ export default function App() {
     }, 250);
 
     return () => clearTimeout(timer);
-  }, [searchQuery, searchRoom, searchSource]);
+  }, [searchQuery, searchRoom, searchSource, searchSession]);
 
   // ── Real Microphone Web Audio Pipeline (AudioWorklet) ────────────────────
 
@@ -481,6 +528,9 @@ export default function App() {
                   sample_rate: data.sampleRate || 16000,
                   room: roomRef.current,
                   source: 'microphone',
+                  clientSessionId,
+                  client_session_id: clientSessionId,
+                  session_id: clientSessionId,
                 }),
               });
 
@@ -539,6 +589,9 @@ export default function App() {
         duration: 1.5,
         source: 'simulator',
         timestamp: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
+        clientSessionId,
+        client_session_id: clientSessionId,
+        session_id: clientSessionId,
       };
 
       const res = await fetch('/api/events', {
@@ -723,6 +776,25 @@ export default function App() {
               </option>
             ))}
           </select>
+        </div>
+
+        {/* Client Session Badge */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 10px', backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '6px' }}>
+          <span style={{ fontSize: '0.74rem', color: '#8b949e' }}>Session:</span>
+          <span
+            title={`Active Client Session: ${clientSessionId}`}
+            style={{
+              fontFamily: 'monospace',
+              fontSize: '0.72rem',
+              color: '#58a6ff',
+              backgroundColor: '#0d2d6e',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              border: '1px solid #1f6feb',
+            }}
+          >
+            {clientSessionId.length > 12 ? `${clientSessionId.slice(0, 8)}…` : clientSessionId}
+          </span>
         </div>
 
         <hr style={{ border: 'none', borderTop: '1px solid #30363d', margin: '2px 0' }} />
@@ -1046,6 +1118,25 @@ export default function App() {
         {/* Database Management Tools */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: 'auto' }}>
           <button
+            onClick={() => setSettingsModalOpen(true)}
+            style={{
+              backgroundColor: '#21262d',
+              color: '#e6edf3',
+              border: '1px solid #30363d',
+              borderRadius: '6px',
+              padding: '7px 10px',
+              fontSize: '0.78rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+            }}
+          >
+            ⚙️ Settings
+          </button>
+          <button
             onClick={() => setResetModalOpen(true)}
             style={{
               backgroundColor: '#21262d',
@@ -1149,26 +1240,46 @@ export default function App() {
             </div>
           </div>
 
-          {/* Export Report Action */}
-          <a
-            href="/api/reports/csv"
-            download
-            style={{
-              backgroundColor: '#21262d',
-              color: '#58a6ff',
-              border: '1px solid #30363d',
-              borderRadius: '8px',
-              padding: '9px 16px',
-              fontSize: '0.85rem',
-              fontWeight: 600,
-              textDecoration: 'none',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            📥 Export CSV Report
-          </a>
+          {/* Header Actions */}
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <button
+              onClick={() => setSettingsModalOpen(true)}
+              style={{
+                backgroundColor: '#21262d',
+                color: '#e6edf3',
+                border: '1px solid #30363d',
+                borderRadius: '8px',
+                padding: '9px 16px',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+              }}
+            >
+              ⚙️ Settings
+            </button>
+            <a
+              href="/api/reports/csv"
+              download
+              style={{
+                backgroundColor: '#21262d',
+                color: '#58a6ff',
+                border: '1px solid #30363d',
+                borderRadius: '8px',
+                padding: '9px 16px',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              📥 Export CSV Report
+            </a>
+          </div>
         </div>
 
         <hr style={{ border: 'none', borderTop: '1px solid #30363d', margin: '16px 0' }} />
@@ -1275,8 +1386,13 @@ export default function App() {
                         {Math.round(ev.confidence * 100)}%
                       </div>
                     </div>
-                    <div style={{ fontSize: '0.78rem', color: '#8b949e', marginTop: '4px' }}>
-                      🕐 {formatTime(ev.timestamp)} &nbsp;|&nbsp; 📍 {ev.room}
+                    <div style={{ fontSize: '0.78rem', color: '#8b949e', marginTop: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>🕐 {formatTime(ev.timestamp)} &nbsp;|&nbsp; 📍 {ev.room}</span>
+                      {(ev.client_session_id || ev.session_id) && (
+                        <span style={{ fontSize: '0.68rem', color: '#58a6ff', fontFamily: 'monospace' }}>
+                          🆔 {(ev.client_session_id || ev.session_id || '').slice(0, 8)}
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1447,10 +1563,10 @@ export default function App() {
 
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
               <button
-                onClick={() => setNotificationSettingsOpen(!notificationSettingsOpen)}
+                onClick={() => setSettingsModalOpen(true)}
                 style={{
-                  backgroundColor: notificationSettingsOpen ? '#0d2d6e' : '#21262d',
-                  color: notificationSettingsOpen ? '#58a6ff' : '#c9d1d9',
+                  backgroundColor: '#21262d',
+                  color: '#e6edf3',
                   border: '1px solid #30363d',
                   borderRadius: '6px',
                   padding: '5px 12px',
@@ -1462,8 +1578,7 @@ export default function App() {
                   gap: '6px',
                 }}
               >
-                <span>⚙️ Notification Settings</span>
-                <span style={{ fontSize: '0.7rem' }}>{notificationSettingsOpen ? '▲' : '▼'}</span>
+                <span>⚙️ Alert & System Settings</span>
               </button>
 
               {unackAlertCount > 0 && (
@@ -1974,7 +2089,7 @@ export default function App() {
               value={searchSource}
               onChange={(e) => setSearchSource(e.target.value)}
               style={{
-                width: '140px',
+                width: '130px',
                 backgroundColor: '#21262d',
                 color: '#e6edf3',
                 border: '1px solid #30363d',
@@ -1989,9 +2104,27 @@ export default function App() {
               <option value="microphone">Real Mic</option>
               <option value="simulator">Simulator</option>
             </select>
+            <select
+              value={searchSession}
+              onChange={(e) => setSearchSession(e.target.value)}
+              style={{
+                width: '150px',
+                backgroundColor: '#21262d',
+                color: '#e6edf3',
+                border: '1px solid #30363d',
+                borderRadius: '8px',
+                padding: '9px 10px',
+                fontSize: '0.88rem',
+                outline: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              <option value="All">All Sessions</option>
+              <option value={clientSessionId}>Current Tab</option>
+            </select>
           </div>
 
-          {searchQuery.trim() || searchRoom !== 'All Rooms' || searchSource !== 'All' ? (
+          {searchQuery.trim() || searchRoom !== 'All Rooms' || searchSource !== 'All' || searchSession !== 'All' ? (
             searchResults.length > 0 ? (
               <div>
                 <div
@@ -2011,6 +2144,7 @@ export default function App() {
                         <th style={{ padding: '8px 12px' }}>Room</th>
                         <th style={{ padding: '8px 12px' }}>Sound Class</th>
                         <th style={{ padding: '8px 12px' }}>Source</th>
+                        <th style={{ padding: '8px 12px' }}>Session</th>
                         <th style={{ padding: '8px 12px', textAlign: 'right' }}>Confidence</th>
                       </tr>
                     </thead>
@@ -2024,6 +2158,15 @@ export default function App() {
                             <span style={{ color: ev.source === 'microphone' ? '#3fb950' : '#8b949e' }}>
                               {ev.source === 'microphone' ? '🎙️ Mic' : '⚡ Sim'}
                             </span>
+                          </td>
+                          <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: '0.75rem', color: '#8b949e' }}>
+                            {(ev.client_session_id || ev.session_id) ? (
+                              <span style={{ color: (ev.client_session_id || ev.session_id) === clientSessionId ? '#58a6ff' : '#8b949e' }}>
+                                {(ev.client_session_id || ev.session_id || '').slice(0, 8)}
+                              </span>
+                            ) : (
+                              '—'
+                            )}
                           </td>
                           <td style={{ padding: '8px 12px', textAlign: 'right', color: '#3fb950' }}>
                             {Math.round(ev.confidence * 100)}%
@@ -2272,6 +2415,14 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* ── Centralized Settings Modal ────────────────────────────────────── */}
+      <SettingsModal
+        isOpen={settingsModalOpen}
+        onClose={() => setSettingsModalOpen(false)}
+        onSettingsSaved={handleSettingsSaved}
+        currentRoom={room}
+      />
     </div>
   );
 }

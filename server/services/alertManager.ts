@@ -54,6 +54,19 @@ export function checkForAlert(event: DbEvent): DbAlert | null {
 
   if (!rule) return null;
 
+  // Check if this severity level is enabled in settings
+  if (rule.severity === 'Critical') {
+    const row = db.prepare(`SELECT setting_value FROM settings WHERE setting_key = 'alerts_critical_enabled'`).get() as { setting_value: string } | undefined;
+    if (row && row.setting_value === 'false') {
+      return null;
+    }
+  } else if (rule.severity === 'High') {
+    const row = db.prepare(`SELECT setting_value FROM settings WHERE setting_key = 'alerts_high_enabled'`).get() as { setting_value: string } | undefined;
+    if (row && row.setting_value === 'false') {
+      return null;
+    }
+  }
+
   // Prevent duplicate unacknowledged alerts for the same room & alert type within 3 minutes
   const recentAlert = db.prepare(`
     SELECT a.* FROM alerts a

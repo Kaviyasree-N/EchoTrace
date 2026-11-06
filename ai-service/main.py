@@ -79,11 +79,20 @@ class AIServiceHandler(BaseHTTPRequestHandler):
             else:
                 samples = decode_audio_payload(body, content_type)
 
+            client_session_id = None
+            if "application/json" in content_type:
+                try:
+                    p = json.loads(body.decode("utf-8"))
+                    client_session_id = p.get("clientSessionId") or p.get("client_session_id") or p.get("session_id")
+                except Exception:
+                    pass
+
             if not samples:
                 self._send_json(200, {
                     "detected": False,
                     "sound_class": None,
                     "confidence": 0.0,
+                    "client_session_id": client_session_id,
                     "message": "Empty or silent audio waveform",
                     "inference_engine": detector.get_status()["inference_engine"],
                 })
@@ -93,6 +102,7 @@ class AIServiceHandler(BaseHTTPRequestHandler):
             if result and result.get("sound_class"):
                 self._send_json(200, {
                     "detected": True,
+                    "client_session_id": client_session_id,
                     **result
                 })
             else:
@@ -100,6 +110,7 @@ class AIServiceHandler(BaseHTTPRequestHandler):
                     "detected": False,
                     "sound_class": None,
                     "confidence": 0.0,
+                    "client_session_id": client_session_id,
                     "message": "No target sound detected above threshold",
                     "predictions": result.get("predictions", []) if result else [],
                     "inference_engine": result.get("inference_engine", detector.get_status()["inference_engine"]) if result else detector.get_status()["inference_engine"],

@@ -2,6 +2,14 @@ import { getDb, DbEvent, DbAlert } from '../database/db';
 import { checkForAlert } from './alertManager';
 import { evaluateRecentActivities } from './activityEngine';
 
+export function validateAndSanitizeSessionId(val: unknown): string | null {
+  if (typeof val !== 'string') return null;
+  const trimmed = val.trim();
+  if (trimmed.length === 0 || trimmed.length > 128) return null;
+  if (!/^[a-zA-Z0-9_\-:.]+$/.test(trimmed)) return null;
+  return trimmed;
+}
+
 export interface ProcessEventInput {
   sound_class: string;
   confidence: number;
@@ -10,6 +18,8 @@ export interface ProcessEventInput {
   duration?: number;
   source?: 'microphone' | 'simulator';
   session_id?: string;
+  client_session_id?: string | null;
+  clientSessionId?: string | null;
 }
 
 export interface ProcessEventResult {
@@ -60,7 +70,9 @@ export function processSoundDetection(input: ProcessEventInput): ProcessEventRes
   const nowMs = new Date(timestamp).getTime();
   const source = input.source || 'microphone';
   const duration = input.duration || 1.0;
-  const sessionId = input.session_id || '';
+  const rawSession = input.client_session_id || input.clientSessionId || input.session_id;
+  const validatedClientSession = validateAndSanitizeSessionId(rawSession);
+  const sessionId = validatedClientSession || (typeof input.session_id === 'string' && input.session_id.length <= 128 ? input.session_id : '');
 
   // 2. Query most recent identical sound in this room
   const lastEvent = db.prepare(`
@@ -116,8 +128,8 @@ export function processSoundDetection(input: ProcessEventInput): ProcessEventRes
 
   // 3. Create a new event
   const insertStmt = db.prepare(`
-    INSERT INTO events (sound_class, confidence, room, timestamp, duration, source, session_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO events (sound_class, confidence, room, timestamp, duration, source, session_id, client_session_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   const result = insertStmt.run(
@@ -127,7 +139,8 @@ export function processSoundDetection(input: ProcessEventInput): ProcessEventRes
     timestamp,
     duration,
     source,
-    sessionId
+    sessionId,
+    validatedClientSession
   );
 
   const newEventId = Number(result.lastInsertRowid);
@@ -140,6 +153,7 @@ export function processSoundDetection(input: ProcessEventInput): ProcessEventRes
     duration,
     source,
     session_id: sessionId,
+    client_session_id: validatedClientSession,
   };
 
   // 4. Trigger alert evaluation

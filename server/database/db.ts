@@ -13,6 +13,7 @@ export interface DbEvent {
   duration: number;
   source: 'microphone' | 'simulator';
   session_id: string;
+  client_session_id?: string | null;
 }
 
 export interface DbActivity {
@@ -74,14 +75,29 @@ function initSchema(db: Database.Database) {
       timestamp TEXT NOT NULL,
       duration REAL DEFAULT 1.0,
       source TEXT DEFAULT 'microphone',
-      session_id TEXT DEFAULT ''
+      session_id TEXT DEFAULT '',
+      client_session_id TEXT DEFAULT NULL
     );
 
     CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp);
     CREATE INDEX IF NOT EXISTS idx_events_room ON events(room);
     CREATE INDEX IF NOT EXISTS idx_events_sound ON events(sound_class);
     CREATE INDEX IF NOT EXISTS idx_events_source ON events(source);
+    CREATE INDEX IF NOT EXISTS idx_events_session_id ON events(session_id);
   `);
+
+  // Safe migration for existing databases:
+  try {
+    const tableInfo = db.prepare(`PRAGMA table_info(events)`).all() as Array<{ name: string }>;
+    const colNames = tableInfo.map((c) => c.name);
+    if (!colNames.includes('client_session_id')) {
+      db.exec(`ALTER TABLE events ADD COLUMN client_session_id TEXT DEFAULT NULL;`);
+    }
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_events_client_session_id ON events(client_session_id);`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_events_session_id ON events(session_id);`);
+  } catch (err) {
+    console.warn('[EchoTrace] Migration notice:', err);
+  }
 
   // Table 2: activities
   db.exec(`
@@ -138,6 +154,11 @@ function initSchema(db: Database.Database) {
   insertSetting.run('activity_window_min', '15');
   insertSetting.run('duplicate_cooldown_sec', '4');
   insertSetting.run('ai_service_url', 'http://127.0.0.1:5000');
+  insertSetting.run('alerts_critical_enabled', 'true');
+  insertSetting.run('alerts_high_enabled', 'true');
+  insertSetting.run('notifications_enabled', 'true');
+  insertSetting.run('chime_enabled', 'false');
+  insertSetting.run('chime_severity', 'Critical');
 }
 
 export function closeDb(): void {
