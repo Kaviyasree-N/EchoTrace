@@ -56,10 +56,11 @@ export function checkForAlert(event: DbEvent): DbAlert | null {
 
   // Prevent duplicate unacknowledged alerts for the same room & alert type within 3 minutes
   const recentAlert = db.prepare(`
-    SELECT * FROM alerts
-    WHERE alert_type = ? AND acknowledged = 0
-    ORDER BY timestamp DESC LIMIT 1
-  `).get(rule.alertType) as DbAlert | undefined;
+    SELECT a.* FROM alerts a
+    LEFT JOIN events e ON a.event_id = e.id
+    WHERE a.alert_type = ? AND a.acknowledged = 0 AND (e.room = ? OR e.room IS NULL)
+    ORDER BY a.timestamp DESC LIMIT 1
+  `).get(rule.alertType, event.room) as DbAlert | undefined;
 
   if (recentAlert) {
     const timeDiff = Math.abs(new Date(event.timestamp).getTime() - new Date(recentAlert.timestamp).getTime());
@@ -94,6 +95,7 @@ export function checkForAlert(event: DbEvent): DbAlert | null {
     acknowledged: 0,
     acknowledged_at: null,
     source: event.source,
+    room: event.room,
   };
 }
 
@@ -109,13 +111,29 @@ export function acknowledgeAlert(alertId: number): boolean {
   return result.changes > 0;
 }
 
+export function acknowledgeAllAlerts(): number {
+  const db = getDb();
+  const now = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const result = db.prepare(`
+    UPDATE alerts
+    SET acknowledged = 1, acknowledged_at = ?
+    WHERE acknowledged = 0
+  `).run(now);
+
+  return result.changes;
+}
+
 export function getAlerts(limit: number = 50, onlyUnacknowledged: boolean = false): DbAlert[] {
   const db = getDb();
-  let query = `SELECT * FROM alerts`;
+  let query = `
+    SELECT a.*, e.room as room
+    FROM alerts a
+    LEFT JOIN events e ON a.event_id = e.id
+  `;
   if (onlyUnacknowledged) {
-    query += ` WHERE acknowledged = 0`;
+    query += ` WHERE a.acknowledged = 0`;
   }
-  query += ` ORDER BY timestamp DESC LIMIT ?`;
+  query += ` ORDER BY a.timestamp DESC LIMIT ?`;
   return db.prepare(query).all(limit) as DbAlert[];
 }
 
@@ -124,3 +142,4 @@ export function getUnacknowledgedAlertCount(): number {
   const row = db.prepare(`SELECT COUNT(*) as count FROM alerts WHERE acknowledged = 0`).get() as { count: number };
   return row.count;
 }
+

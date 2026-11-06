@@ -1,4 +1,4 @@
-import { getDb, DbEvent } from '../database/db';
+import { getDb, DbEvent, DbAlert } from '../database/db';
 import { checkForAlert } from './alertManager';
 import { evaluateRecentActivities } from './activityEngine';
 
@@ -15,6 +15,7 @@ export interface ProcessEventInput {
 export interface ProcessEventResult {
   status: 'created' | 'grouped' | 'suppressed' | 'rejected_threshold';
   event: DbEvent | null;
+  alert?: DbAlert | null;
   message?: string;
 }
 
@@ -106,9 +107,11 @@ export function processSoundDetection(input: ProcessEventInput): ProcessEventRes
       return {
         status: 'suppressed',
         event: lastEvent,
+        alert: null,
         message: `Suppressed duplicate sound within cooldown (${elapsedSec.toFixed(1)}s < ${cooldownSec}s)`,
       };
     }
+
   }
 
   // 3. Create a new event
@@ -140,7 +143,7 @@ export function processSoundDetection(input: ProcessEventInput): ProcessEventRes
   };
 
   // 4. Trigger alert evaluation
-  checkForAlert(newEvent);
+  const alert = checkForAlert(newEvent);
 
   // 5. Trigger activity interpretation engine
   evaluateRecentActivities(input.room);
@@ -148,5 +151,6 @@ export function processSoundDetection(input: ProcessEventInput): ProcessEventRes
   return {
     status: 'created',
     event: newEvent,
+    alert,
   };
 }

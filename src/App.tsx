@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ROOMS, TARGET_CLASSES } from './config';
-import type { SoundEvent, Activity, Alert, StatsData, AiStatus } from './types';
+import type { SoundEvent, Activity, Alert, StatsData, AiStatus, NotificationPermissionState } from './types';
+import { playAlertChime, unlockAudioContext } from './utils/alertChime';
+import {
+  getNotificationPermissionStatus,
+  requestNotificationPermission,
+  sendCaregiverNotification,
+} from './utils/notificationService';
+
 
 export default function App() {
   // Navigation & room state
@@ -49,6 +56,30 @@ export default function App() {
   const [resetModalOpen, setResetModalOpen] = useState<boolean>(false);
   const [clearModalOpen, setClearModalOpen] = useState<boolean>(false);
   const [onlyUnackAlerts, setOnlyUnackAlerts] = useState<boolean>(false);
+
+  // Caregiver Alert Notification & Chime settings
+  const [notificationsEnabled, setNotificationsEnabled] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem('echotrace_notifications_enabled') !== 'false';
+  });
+  const [chimeEnabled, setChimeEnabled] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('echotrace_chime_enabled') === 'true';
+  });
+  const [chimeSeverity, setChimeSeverity] = useState<'Critical' | 'High'>(() => {
+    if (typeof window === 'undefined') return 'Critical';
+    return (localStorage.getItem('echotrace_chime_severity') as 'Critical' | 'High') || 'Critical';
+  });
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermissionState>(
+    getNotificationPermissionStatus()
+  );
+  const [notificationSettingsOpen, setNotificationSettingsOpen] = useState<boolean>(false);
+  const [testNotificationFeedback, setTestNotificationFeedback] = useState<string | null>(null);
+
+  // Deduplication for alerts to ensure chime and notifications trigger only once per alert ID
+  const notifiedAlertIdsRef = useRef<Set<number>>(new Set());
+  const isInitialAlertsLoadedRef = useRef<boolean>(false);
+
 
   // Web Audio refs for real microphone capture via AudioWorklet
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -136,19 +167,142 @@ export default function App() {
     }
   };
 
+  const notifyNewAlert = (alert: Alert) => {
+    if (!alert || alert.acknowledged === 1) return;
+    if (notifiedAlertIdsRef.current.has(alert.id)) return;
+
+    notifiedAlertIdsRef.current.add(alert.id);
+
+    // 1. Audible chime (for critical, or critical+high if enabled)
+    const qualifiesForChime =
+      alert.severity === 'Critical' || (chimeSeverity === 'High' && alert.severity === 'High');
+
+    if (chimeEnabled && qualifiesForChime) {
+      playAlertChime();
+    }
+
+    // 2. Browser Desktop Notification (for critical and high severity)
+    if (
+      notificationsEnabled &&
+      notificationPermission === 'granted' &&
+      (alert.severity === 'Critical' || alert.severity === 'High')
+    ) {
+      sendCaregiverNotification(alert, (id) => {
+        const el = document.getElementById(`alert-row-${id}`) || document.getElementById('alerts-section');
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth' });
+        }
+      });
+    }
+  };
+
   const refreshAlerts = async () => {
     try {
       const url = onlyUnackAlerts ? '/api/alerts?onlyUnacknowledged=true' : '/api/alerts';
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
-        setAlerts(data.alerts || []);
+        const incomingAlerts: Alert[] = data.alerts || [];
+        setAlerts(incomingAlerts);
         setUnackAlertCount(data.unacknowledgedCount || 0);
+
+        // First load: seed notified set without chiming historical records
+        if (!isInitialAlertsLoadedRef.current) {
+          incomingAlerts.forEach((a) => notifiedAlertIdsRef.current.add(a.id));
+          isInitialAlertsLoadedRef.current = true;
+        } else {
+          // Check for newly generated unacknowledged alerts
+          incomingAlerts.forEach((a) => {
+            if (a.acknowledged === 0 && !notifiedAlertIdsRef.current.has(a.id)) {
+              notifyNewAlert(a);
+            }
+          });
+        }
       }
     } catch {
       // ignore
     }
   };
+
+  const handleRequestNotificationPermission = async () => {
+    unlockAudioContext();
+    const perm = await requestNotificationPermission();
+    setNotificationPermission(perm);
+    if (perm === 'granted') {
+      setNotificationsEnabled(true);
+      localStorage.setItem('echotrace_notifications_enabled', 'true');
+      setTestNotificationFeedback('✓ Permission granted! Browser notifications are active.');
+      setTimeout(() => setTestNotificationFeedback(null), 4000);
+    } else if (perm === 'denied') {
+      setTestNotificationFeedback('⚠ Notification permission was blocked in browser settings.');
+      setTimeout(() => setTestNotificationFeedback(null), 6000);
+    }
+  };
+
+  const handleToggleNotifications = () => {
+    const next = !notificationsEnabled;
+    setNotificationsEnabled(next);
+    localStorage.setItem('echotrace_notifications_enabled', String(next));
+    if (next && notificationPermission !== 'granted') {
+      handleRequestNotificationPermission();
+    }
+  };
+
+  const handleToggleChime = () => {
+    unlockAudioContext();
+    const next = !chimeEnabled;
+    setChimeEnabled(next);
+    localStorage.setItem('echotrace_chime_enabled', String(next));
+    if (next) {
+      playAlertChime();
+    }
+  };
+
+  const handleTestChime = () => {
+    unlockAudioContext();
+    playAlertChime();
+  };
+
+  const handleTestNotification = () => {
+    if (notificationPermission !== 'granted') {
+      handleRequestNotificationPermission();
+      return;
+    }
+    const sampleAlert: Alert = {
+      id: Date.now(),
+      event_id: null,
+      alert_type: 'Smoke Detector Activated',
+      severity: 'Critical',
+      description: 'Caregiver notification test: verification of browser notifications and chime.',
+      timestamp: new Date().toISOString(),
+      acknowledged: 0,
+      acknowledged_at: null,
+      source: 'simulator',
+      room: room,
+    };
+    sendCaregiverNotification(sampleAlert, () => {
+      const el = document.getElementById('alerts-section');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    });
+    if (chimeEnabled) {
+      playAlertChime();
+    }
+    setTestNotificationFeedback('✓ Test notification dispatched to your desktop.');
+    setTimeout(() => setTestNotificationFeedback(null), 4000);
+  };
+
+  const handleAcknowledgeAllAlerts = async () => {
+    try {
+      const res = await fetch('/api/alerts/ack-all', { method: 'POST' });
+      if (res.ok) {
+        refreshAlerts();
+        refreshStats();
+      }
+    } catch (err) {
+      console.error('Ack all alerts failed:', err);
+    }
+  };
+
 
   // Initial load
   useEffect(() => {
@@ -339,6 +493,9 @@ export default function App() {
                     ...prev,
                     [ev.sound_class]: (prev[ev.sound_class] || 0) + 1,
                   }));
+                  if (result.eventResult?.alert) {
+                    notifyNewAlert(result.eventResult.alert);
+                  }
                   refreshStats();
                   refreshActivities();
                   refreshAlerts();
@@ -399,6 +556,9 @@ export default function App() {
             ...prev,
             [ev.sound_class]: (prev[ev.sound_class] || 0) + 1,
           }));
+          if (result.alert) {
+            notifyNewAlert(result.alert);
+          }
           refreshStats();
           refreshActivities();
           refreshAlerts();
@@ -1262,12 +1422,68 @@ export default function App() {
         <hr style={{ border: 'none', borderTop: '1px solid #30363d', margin: '24px 0' }} />
 
         {/* ── Caregiver Alerts Management ───────────────────────────────────── */}
-        <div style={{ marginBottom: '28px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#c9d1d9', margin: 0 }}>
-              🚨 Caregiver Alerts ({alerts.length})
-            </h3>
-            <div style={{ display: 'flex', gap: '8px' }}>
+        <div id="alerts-section" style={{ marginBottom: '28px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: '#c9d1d9', margin: 0 }}>
+                🚨 Caregiver Alerts ({alerts.length})
+              </h3>
+              {unackAlertCount > 0 && (
+                <span
+                  style={{
+                    fontSize: '0.75rem',
+                    backgroundColor: '#4d0000',
+                    color: '#f85149',
+                    border: '1px solid #f85149',
+                    borderRadius: '999px',
+                    padding: '2px 9px',
+                    fontWeight: 700,
+                  }}
+                >
+                  ● {unackAlertCount} Pending
+                </span>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => setNotificationSettingsOpen(!notificationSettingsOpen)}
+                style={{
+                  backgroundColor: notificationSettingsOpen ? '#0d2d6e' : '#21262d',
+                  color: notificationSettingsOpen ? '#58a6ff' : '#c9d1d9',
+                  border: '1px solid #30363d',
+                  borderRadius: '6px',
+                  padding: '5px 12px',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                <span>⚙️ Notification Settings</span>
+                <span style={{ fontSize: '0.7rem' }}>{notificationSettingsOpen ? '▲' : '▼'}</span>
+              </button>
+
+              {unackAlertCount > 0 && (
+                <button
+                  onClick={handleAcknowledgeAllAlerts}
+                  style={{
+                    backgroundColor: '#238636',
+                    color: '#ffffff',
+                    border: '1px solid #2ea043',
+                    borderRadius: '6px',
+                    padding: '5px 12px',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  ✓ Acknowledge All ({unackAlertCount})
+                </button>
+              )}
+
               <button
                 onClick={() => setOnlyUnackAlerts(!onlyUnackAlerts)}
                 style={{
@@ -1275,17 +1491,253 @@ export default function App() {
                   color: onlyUnackAlerts ? '#58a6ff' : '#8b949e',
                   border: '1px solid #30363d',
                   borderRadius: '6px',
-                  padding: '4px 10px',
-                  fontSize: '0.75rem',
+                  padding: '5px 12px',
+                  fontSize: '0.78rem',
                   fontWeight: 600,
                   cursor: 'pointer',
                 }}
               >
-                {onlyUnackAlerts ? 'Showing Unacknowledged Only' : 'Show All Alerts'}
+                {onlyUnackAlerts ? 'Showing Pending Only' : 'Show All Alerts'}
               </button>
             </div>
           </div>
 
+          {/* Caregiver Notification & Audible Alert Settings Drawer */}
+          {notificationSettingsOpen && (
+            <div
+              style={{
+                backgroundColor: '#161b22',
+                border: '1px solid #30363d',
+                borderRadius: '8px',
+                padding: '16px 20px',
+                marginBottom: '16px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+              }}
+            >
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                {/* 1. Browser Notifications */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 600, color: '#e6edf3', fontSize: '0.85rem' }}>
+                      🖥️ Desktop Browser Notifications
+                    </span>
+                    {notificationPermission === 'granted' ? (
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          backgroundColor: '#0d4429',
+                          color: '#3fb950',
+                          border: '1px solid #238636',
+                          fontWeight: 600,
+                        }}
+                      >
+                        ✓ Permission Granted
+                      </span>
+                    ) : notificationPermission === 'denied' ? (
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          backgroundColor: '#4d0000',
+                          color: '#f85149',
+                          border: '1px solid #da3633',
+                          fontWeight: 600,
+                        }}
+                      >
+                        ✕ Blocked in Browser
+                      </span>
+                    ) : notificationPermission === 'default' ? (
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          backgroundColor: '#271d0a',
+                          color: '#e3b341',
+                          border: '1px solid #9e6a03',
+                          fontWeight: 600,
+                        }}
+                      >
+                        ○ Permission Needed
+                      </span>
+                    ) : (
+                      <span
+                        style={{
+                          fontSize: '0.72rem',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          backgroundColor: '#21262d',
+                          color: '#8b949e',
+                          border: '1px solid #30363d',
+                        }}
+                      >
+                        ○ Unsupported
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{ fontSize: '0.78rem', color: '#8b949e', lineHeight: 1.4 }}>
+                    Dispatches OS-level notifications for critical sounds (smoke alarms, fire) even when the tab is running in the background.
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                    <button
+                      onClick={handleToggleNotifications}
+                      style={{
+                        backgroundColor: notificationsEnabled ? '#238636' : '#21262d',
+                        color: notificationsEnabled ? '#ffffff' : '#8b949e',
+                        border: '1px solid #30363d',
+                        borderRadius: '6px',
+                        padding: '6px 12px',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {notificationsEnabled ? '🔔 Notifications: Enabled' : '🔕 Notifications: Muted'}
+                    </button>
+
+                    {notificationPermission !== 'granted' && notificationPermission !== 'unsupported' && (
+                      <button
+                        onClick={handleRequestNotificationPermission}
+                        style={{
+                          backgroundColor: '#1f6feb',
+                          color: '#ffffff',
+                          border: 'none',
+                          borderRadius: '6px',
+                          padding: '6px 12px',
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Enable Permission
+                      </button>
+                    )}
+
+                    <button
+                      onClick={handleTestNotification}
+                      style={{
+                        backgroundColor: '#21262d',
+                        color: '#58a6ff',
+                        border: '1px solid #30363d',
+                        borderRadius: '6px',
+                        padding: '6px 12px',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Test Alert
+                    </button>
+                  </div>
+                </div>
+
+                {/* 2. Audible Alert Chime */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 600, color: '#e6edf3', fontSize: '0.85rem' }}>
+                      🔔 Audible Caregiver Chime
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '0.72rem',
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        backgroundColor: chimeEnabled ? '#0d4429' : '#21262d',
+                        color: chimeEnabled ? '#3fb950' : '#8b949e',
+                        border: '1px solid #30363d',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {chimeEnabled ? '🔊 Sound Active' : '🔇 Muted'}
+                    </span>
+                  </div>
+
+                  <div style={{ fontSize: '0.78rem', color: '#8b949e', lineHeight: 1.4 }}>
+                    Plays a gentle 2-tone melodic chime via Web Audio API. Never chimes on ordinary ambient noises or repeated events.
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={handleToggleChime}
+                      style={{
+                        backgroundColor: chimeEnabled ? '#238636' : '#21262d',
+                        color: chimeEnabled ? '#ffffff' : '#8b949e',
+                        border: '1px solid #30363d',
+                        borderRadius: '6px',
+                        padding: '6px 12px',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {chimeEnabled ? '🔊 Chime: Enabled' : '🔇 Chime: Muted'}
+                    </button>
+
+                    <button
+                      onClick={handleTestChime}
+                      style={{
+                        backgroundColor: '#21262d',
+                        color: '#58a6ff',
+                        border: '1px solid #30363d',
+                        borderRadius: '6px',
+                        padding: '6px 12px',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      ▶ Preview Chime
+                    </button>
+
+                    <select
+                      value={chimeSeverity}
+                      onChange={(e) => {
+                        const val = e.target.value as 'Critical' | 'High';
+                        setChimeSeverity(val);
+                        localStorage.setItem('echotrace_chime_severity', val);
+                      }}
+                      style={{
+                        backgroundColor: '#21262d',
+                        color: '#c9d1d9',
+                        border: '1px solid #30363d',
+                        borderRadius: '6px',
+                        padding: '5px 8px',
+                        fontSize: '0.75rem',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <option value="Critical">Critical Only (Smoke/Fire)</option>
+                      <option value="High">Critical & High (Smoke, Fire, Glass, Falls)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {testNotificationFeedback && (
+                <div
+                  style={{
+                    marginTop: '12px',
+                    padding: '8px 12px',
+                    backgroundColor: testNotificationFeedback.startsWith('✓') ? '#0d4429' : '#271d0a',
+                    border: `1px solid ${testNotificationFeedback.startsWith('✓') ? '#238636' : '#9e6a03'}`,
+                    borderRadius: '6px',
+                    fontSize: '0.78rem',
+                    color: testNotificationFeedback.startsWith('✓') ? '#3fb950' : '#e3b341',
+                  }}
+                >
+                  {testNotificationFeedback}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Alerts Table */}
           {alerts.length > 0 ? (
             <div
               style={{
@@ -1293,7 +1745,7 @@ export default function App() {
                 border: '1px solid #30363d',
                 borderRadius: '8px',
                 overflow: 'hidden',
-                maxHeight: '260px',
+                maxHeight: '300px',
                 overflowY: 'auto',
               }}
             >
@@ -1302,6 +1754,7 @@ export default function App() {
                   <tr style={{ backgroundColor: '#21262d', color: '#8b949e', borderBottom: '1px solid #30363d' }}>
                     <th style={{ padding: '8px 12px' }}>Severity</th>
                     <th style={{ padding: '8px 12px' }}>Alert Type</th>
+                    <th style={{ padding: '8px 12px' }}>Room</th>
                     <th style={{ padding: '8px 12px' }}>Timestamp</th>
                     <th style={{ padding: '8px 12px' }}>Source</th>
                     <th style={{ padding: '8px 12px' }}>Status</th>
@@ -1320,7 +1773,14 @@ export default function App() {
                         : '#8b949e';
 
                     return (
-                      <tr key={al.id} style={{ borderBottom: '1px solid #21262d' }}>
+                      <tr
+                        key={al.id}
+                        id={`alert-row-${al.id}`}
+                        style={{
+                          borderBottom: '1px solid #21262d',
+                          backgroundColor: al.acknowledged ? 'transparent' : 'rgba(248, 81, 73, 0.04)',
+                        }}
+                      >
                         <td style={{ padding: '8px 12px' }}>
                           <span
                             style={{
@@ -1335,16 +1795,33 @@ export default function App() {
                             {al.severity}
                           </span>
                         </td>
-                        <td style={{ padding: '8px 12px', color: '#ffffff', fontWeight: 500 }}>{al.alert_type}</td>
+                        <td style={{ padding: '8px 12px', color: '#ffffff', fontWeight: 500 }}>
+                          <div>{al.alert_type}</div>
+                          <div style={{ fontSize: '0.72rem', color: '#8b949e', marginTop: '2px' }}>
+                            {al.description}
+                          </div>
+                        </td>
+                        <td style={{ padding: '8px 12px', color: '#c9d1d9' }}>
+                          {al.room ? `📍 ${al.room}` : '—'}
+                        </td>
                         <td style={{ padding: '8px 12px', color: '#8b949e' }}>{formatDateTime(al.timestamp)}</td>
                         <td style={{ padding: '8px 12px' }}>
-                          <span style={{ color: al.source === 'microphone' ? '#3fb950' : '#8b949e', fontSize: '0.72rem' }}>
+                          <span
+                            style={{
+                              fontSize: '0.72rem',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              backgroundColor: al.source === 'microphone' ? '#0d4429' : '#21262d',
+                              color: al.source === 'microphone' ? '#3fb950' : '#e3b341',
+                              border: '1px solid #30363d',
+                            }}
+                          >
                             {al.source === 'microphone' ? '🎙️ Mic' : '⚡ Sim'}
                           </span>
                         </td>
                         <td style={{ padding: '8px 12px' }}>
                           {al.acknowledged ? (
-                            <span style={{ color: '#3fb950', fontSize: '0.75rem' }}>✓ Acknowledged</span>
+                            <span style={{ color: '#3fb950', fontSize: '0.75rem', fontWeight: 500 }}>✓ Acknowledged</span>
                           ) : (
                             <span style={{ color: '#f85149', fontWeight: 600, fontSize: '0.75rem' }}>● Pending</span>
                           )}
@@ -1380,6 +1857,7 @@ export default function App() {
             </div>
           )}
         </div>
+
 
         <hr style={{ border: 'none', borderTop: '1px solid #30363d', margin: '24px 0' }} />
 

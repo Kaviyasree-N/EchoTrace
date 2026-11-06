@@ -36,6 +36,7 @@ export interface DbAlert {
   acknowledged: number; // 0 or 1
   acknowledged_at: string | null;
   source: 'microphone' | 'simulator';
+  room?: string;
 }
 
 export interface DbSetting {

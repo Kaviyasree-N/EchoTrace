@@ -27,10 +27,21 @@ export interface Alert {
   severity: 'Low' | 'Medium' | 'High' | 'Critical';
   description: string;
   timestamp: string;
-  acknowledged: number;
+  acknowledged: number; // 0 or 1
   acknowledged_at: string | null;
   source: 'microphone' | 'simulator';
+  room?: string;
 }
+
+export type NotificationPermissionState = 'granted' | 'denied' | 'default' | 'unsupported';
+
+export interface CaregiverNotificationConfig {
+  notificationsEnabled: boolean;
+  chimeEnabled: boolean;
+  minSeverityForNotification: 'Critical' | 'High';
+  minSeverityForChime: 'Critical' | 'High';
+}
+
 
 export interface StatsData {
   total: number;

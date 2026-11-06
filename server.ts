@@ -8,7 +8,7 @@ import http from 'http';
 import { getDb, DbEvent } from './server/database/db';
 import { seedDatabaseIfEmpty } from './server/database/seed';
 import { processSoundDetection } from './server/services/eventProcessor';
-import { getAlerts, acknowledgeAlert, getUnacknowledgedAlertCount } from './server/services/alertManager';
+import { getAlerts, acknowledgeAlert, acknowledgeAllAlerts, getUnacknowledgedAlertCount } from './server/services/alertManager';
 import { getActivities } from './server/services/activityEngine';
 import { getDashboardInsights, generateCsvReport } from './server/services/reportGenerator';
 
@@ -281,7 +281,7 @@ app.get('/api/alerts', (req, res) => {
   res.json({ alerts, unacknowledgedCount: unackCount });
 });
 
-// Acknowledge alert
+// Acknowledge single alert
 app.post('/api/alerts/:id/ack', (req, res) => {
   const id = Number(req.params.id);
   const success = acknowledgeAlert(id);
@@ -291,6 +291,13 @@ app.post('/api/alerts/:id/ack', (req, res) => {
     res.status(404).json({ error: `Alert #${id} not found` });
   }
 });
+
+// Acknowledge all unacknowledged alerts
+app.post('/api/alerts/ack-all', (_req, res) => {
+  const count = acknowledgeAllAlerts();
+  res.json({ success: true, count, message: `${count} alert(s) acknowledged` });
+});
+
 
 // 7. Interpreted Activities
 app.get('/api/activities', (req, res) => {
