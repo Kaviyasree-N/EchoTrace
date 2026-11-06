@@ -1,6 +1,6 @@
-import { getDb, DbEvent, DbAlert } from '../database/db';
-import { checkForAlert } from './alertManager';
-import { evaluateRecentActivities } from './activityEngine';
+import { getDb, type DbEvent, type DbAlert } from '../database/db.ts';
+import { checkForAlert } from './alertManager.ts';
+import { evaluateRecentActivities } from './activityEngine.ts';
 
 export function validateAndSanitizeSessionId(val: unknown): string | null {
   if (typeof val !== 'string') return null;

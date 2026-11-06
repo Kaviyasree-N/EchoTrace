@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "tsc --noEmit",
     "test": "tsx tests/test-backend.ts && tsx tests/test-notifications.ts && tsx tests/test-settings.ts && tsx tests/test-sessions.ts && python3 tests/test-yamnet-inference.py",
-    "start": "tsx server.ts"
+    "start": "node server.ts"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",

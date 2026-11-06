@@ -1,4 +1,4 @@
-import { TARGET_CLASSES, CONFIDENCE_THRESHOLD, SAMPLE_RATE } from '../../src/config';
+import { TARGET_CLASSES, CONFIDENCE_THRESHOLD, SAMPLE_RATE } from '../../src/config.ts';
 
 export interface ClassificationPrediction {
   sound_class: string;

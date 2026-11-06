@@ -15,10 +15,10 @@
  * 10. Existing notification formatting and audio synthesis remain functional.
  */
 
-import { getDb, closeDb } from '../server/database/db';
-import { processSoundDetection } from '../server/services/eventProcessor';
-import { checkForAlert, getAlerts } from '../server/services/alertManager';
-import { evaluateRecentActivities } from '../server/services/activityEngine';
+import { getDb, closeDb } from '../server/database/db.ts';
+import { processSoundDetection } from '../server/services/eventProcessor.ts';
+import { checkForAlert, getAlerts } from '../server/services/alertManager.ts';
+import { evaluateRecentActivities } from '../server/services/activityEngine.ts';
 
 let passed = 0;
 let failed = 0;

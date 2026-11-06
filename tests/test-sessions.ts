@@ -12,8 +12,8 @@
  * 7. Forwarding through AI gateway / classification payload formats.
  */
 
-import { getDb } from '../server/database/db';
-import { processSoundDetection, validateAndSanitizeSessionId } from '../server/services/eventProcessor';
+import { getDb } from '../server/database/db.ts';
+import { processSoundDetection, validateAndSanitizeSessionId } from '../server/services/eventProcessor.ts';
 
 let passed = 0;
 let failed = 0;
@@ -76,7 +76,7 @@ async function runSessionTests() {
   const event1 = processSoundDetection({
     sound_class: 'Door',
     confidence: 0.88,
-    room: 'Hallway',
+    room: 'Session Room Alpha',
     source: 'simulator',
     clientSessionId: sessionAlpha,
   });

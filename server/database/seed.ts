@@ -1,4 +1,4 @@
-import { getDb } from './db';
+import { getDb } from './db.ts';
 
 export function seedDatabaseIfEmpty(forceReset: boolean = false): void {
   const db = getDb();

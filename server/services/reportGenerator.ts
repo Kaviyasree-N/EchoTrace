@@ -1,4 +1,4 @@
-import { getDb, DbEvent, DbActivity, DbAlert } from '../database/db';
+import { getDb, type DbEvent, type DbActivity, type DbAlert } from '../database/db.ts';
 
 export interface DashboardInsights {
   totalToday: number;

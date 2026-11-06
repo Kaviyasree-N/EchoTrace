@@ -5,13 +5,13 @@ import { fileURLToPath } from 'url';
 import { spawn, ChildProcess } from 'child_process';
 import http from 'http';
 
-import { getDb, DbEvent } from './server/database/db';
-import { seedDatabaseIfEmpty } from './server/database/seed';
-import { processSoundDetection, validateAndSanitizeSessionId } from './server/services/eventProcessor';
-import { getAlerts, acknowledgeAlert, acknowledgeAllAlerts, getUnacknowledgedAlertCount } from './server/services/alertManager';
-import { getActivities } from './server/services/activityEngine';
-import { getDashboardInsights, generateCsvReport } from './server/services/reportGenerator';
-import { classifyWaveform, decodeBase64ToSamples } from './server/services/acousticClassifier';
+import { getDb, type DbEvent } from './server/database/db.ts';
+import { seedDatabaseIfEmpty } from './server/database/seed.ts';
+import { processSoundDetection, validateAndSanitizeSessionId } from './server/services/eventProcessor.ts';
+import { getAlerts, acknowledgeAlert, acknowledgeAllAlerts, getUnacknowledgedAlertCount } from './server/services/alertManager.ts';
+import { getActivities } from './server/services/activityEngine.ts';
+import { getDashboardInsights, generateCsvReport } from './server/services/reportGenerator.ts';
+import { classifyWaveform, decodeBase64ToSamples } from './server/services/acousticClassifier.ts';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

@@ -3,23 +3,23 @@
  * Automated unit and integration tests for EchoTrace Caregiver Notifications & Alert Chime.
  */
 
-import { getDb, closeDb, DbEvent, DbAlert } from '../server/database/db';
-import { seedDatabaseIfEmpty } from '../server/database/seed';
-import { processSoundDetection } from '../server/services/eventProcessor';
+import { getDb, closeDb, type DbEvent, type DbAlert } from '../server/database/db.ts';
+import { seedDatabaseIfEmpty } from '../server/database/seed.ts';
+import { processSoundDetection } from '../server/services/eventProcessor.ts';
 import {
   checkForAlert,
   acknowledgeAlert,
   acknowledgeAllAlerts,
   getAlerts,
   getUnacknowledgedAlertCount,
-} from '../server/services/alertManager';
+} from '../server/services/alertManager.ts';
 import {
   getNotificationPermissionStatus,
   requestNotificationPermission,
   sendCaregiverNotification,
-} from '../src/utils/notificationService';
-import { playAlertChime } from '../src/utils/alertChime';
-import type { Alert } from '../src/types';
+} from '../src/utils/notificationService.ts';
+import { playAlertChime } from '../src/utils/alertChime.ts';
+import type { Alert } from '../src/types.ts';
 
 let passed = 0;
 let failed = 0;

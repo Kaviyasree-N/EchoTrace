@@ -1,4 +1,4 @@
-import { getDb, DbAlert, DbEvent } from '../database/db';
+import { getDb, type DbAlert, type DbEvent } from '../database/db.ts';
 
 export interface AlertRule {
   soundMatch: string[];

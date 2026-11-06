@@ -202,6 +202,32 @@ export default function App() {
     }
   };
 
+  const refreshSettings = async () => {
+    try {
+      const res = await fetch('/api/settings');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.notifications_enabled !== undefined) {
+          const val = data.notifications_enabled !== 'false';
+          setNotificationsEnabled(val);
+          localStorage.setItem('echotrace_notifications_enabled', String(val));
+        }
+        if (data.chime_enabled !== undefined) {
+          const val = data.chime_enabled === 'true';
+          setChimeEnabled(val);
+          localStorage.setItem('echotrace_chime_enabled', String(val));
+        }
+        if (data.chime_severity !== undefined) {
+          const val = (data.chime_severity as 'Critical' | 'High') || 'Critical';
+          setChimeSeverity(val);
+          localStorage.setItem('echotrace_chime_severity', val);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  };
+
   const notifyNewAlert = (alert: Alert) => {
     if (!alert || alert.acknowledged === 1) return;
     if (notifiedAlertIdsRef.current.has(alert.id)) return;
@@ -353,6 +379,7 @@ export default function App() {
   // Initial load
   useEffect(() => {
     checkAiStatus();
+    refreshSettings();
     refreshStats();
     refreshRooms();
     refreshRecentEvents();
@@ -452,6 +479,7 @@ export default function App() {
 
   const startAudioCapture = async () => {
     setMicError(null);
+    unlockAudioContext();
     // Cleanup any existing active capture session to avoid duplicate streams
     stopAudioCapture();
 
@@ -536,7 +564,7 @@ export default function App() {
 
               if (res.ok) {
                 const result = await res.json();
-                if (result.detected && result.eventResult?.event) {
+                if (result.detected && result.eventResult?.event && result.eventResult.status !== 'suppressed') {
                   const ev = result.eventResult.event;
                   setRecentEvents((prev) => [ev, ...prev.filter((p) => p.id !== ev.id).slice(0, 7)]);
                   setSessionCounts((prev) => ({
@@ -565,7 +593,15 @@ export default function App() {
       setIsListening(true);
     } catch (err: any) {
       console.warn('Microphone AudioWorklet error:', err);
-      setMicError(`Microphone unavailable: ${err.message}. You can use the Quick Sound Simulator to test detections.`);
+      let errorDesc = err.message || 'Unknown error';
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        errorDesc = 'Microphone permission was denied. Please allow microphone access in your browser site permissions to monitor live sound.';
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        errorDesc = 'No microphone input device was detected on your computer.';
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        errorDesc = 'Microphone is currently in use or blocked by another application or browser tab.';
+      }
+      setMicError(`Microphone unavailable: ${errorDesc} You can test detections anytime using the Quick Sound Simulator in the sidebar.`);
       stopAudioCapture();
     }
   };
@@ -602,7 +638,9 @@ export default function App() {
 
       if (res.ok) {
         const result = await res.json();
-        if (result.event) {
+        if (result.status === 'suppressed') {
+          // Suppressed by duplicate cooldown - do not duplicate in UI
+        } else if (result.event) {
           const ev = result.event;
           setRecentEvents((prev) => [ev, ...prev.filter((p) => p.id !== ev.id).slice(0, 7)]);
           setSessionCounts((prev) => ({

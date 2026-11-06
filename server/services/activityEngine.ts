@@ -1,4 +1,4 @@
-import { getDb, DbActivity, DbEvent } from '../database/db';
+import { getDb, type DbActivity, type DbEvent } from '../database/db.ts';
 
 export function evaluateRecentActivities(targetRoom: string): DbActivity | null {
   const db = getDb();

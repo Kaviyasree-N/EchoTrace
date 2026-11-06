@@ -3,12 +3,12 @@
  * Comprehensive automated test suite for EchoTrace backend & services
  */
 
-import { getDb, closeDb } from '../server/database/db';
-import { seedDatabaseIfEmpty } from '../server/database/seed';
-import { processSoundDetection } from '../server/services/eventProcessor';
-import { checkForAlert, acknowledgeAlert, getAlerts, getUnacknowledgedAlertCount } from '../server/services/alertManager';
-import { evaluateRecentActivities, getActivities } from '../server/services/activityEngine';
-import { getDashboardInsights, generateCsvReport } from '../server/services/reportGenerator';
+import { getDb, closeDb } from '../server/database/db.ts';
+import { seedDatabaseIfEmpty } from '../server/database/seed.ts';
+import { processSoundDetection } from '../server/services/eventProcessor.ts';
+import { checkForAlert, acknowledgeAlert, getAlerts, getUnacknowledgedAlertCount } from '../server/services/alertManager.ts';
+import { evaluateRecentActivities, getActivities } from '../server/services/activityEngine.ts';
+import { getDashboardInsights, generateCsvReport } from '../server/services/reportGenerator.ts';
 
 let testsPassed = 0;
 let testsFailed = 0;
