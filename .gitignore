@@ -1,25 +1,36 @@
 # Node.js
 node_modules/
 dist/
-
+npm-debug.log*
 
 # Virtual environments
 .venv/
 venv/
 env/
 
-# EchoTrace specific
+# EchoTrace Database & Models
 echotrace.db
+echotrace.db-wal
+echotrace.db-shm
 .yamnet_cache/
 
-# Streamlit
-.streamlit/
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
 
-# OS
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# OS & Temp
 .DS_Store
 Thumbs.db
+*.tmp
 
 # IDE
 .vscode/
 .idea/
 *.swp
+*.swo
