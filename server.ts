@@ -39,10 +39,10 @@ function startPythonAiService() {
     const aiScript = path.join(process.cwd(), 'ai-service', 'main.py');
     console.log(`[EchoTrace] Launching Python YAMNet AI Service: ${aiScript}`);
 
-    aiServiceProcess = spawn('python3', [aiScript], {
-      cwd: process.cwd(),
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
+    aiServiceProcess = spawn(process.env.PYTHON || 'python3', [aiScript], {
+  cwd: process.cwd(),
+  stdio: ['ignore', 'pipe', 'pipe'],
+});
 
     aiServiceProcess.stdout?.on('data', (data) => {
       const msg = data.toString().trim();
