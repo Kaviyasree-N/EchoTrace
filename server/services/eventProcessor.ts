@@ -29,6 +29,13 @@ export interface ProcessEventResult {
   message?: string;
 }
 
+// Critical classes that should remain sensitive even at default 0.40 threshold
+const CRITICAL_DETECTION_CLASSES = new Set([
+  'Smoke detector, smoke alarm',
+  'Fire alarm',
+  'Glass breaking',
+]);
+
 // Sounds that naturally occur continuously or repeatedly
 const CONTINUOUS_SOUND_CLASSES = new Set([
   'Footsteps',
@@ -44,12 +51,29 @@ const CONTINUOUS_SOUND_CLASSES = new Set([
   'Snoring',
 ]);
 
+function getCategoryEffectiveMinConfidence(soundClass: string, baseThreshold: number): number {
+  if (CRITICAL_DETECTION_CLASSES.has(soundClass)) {
+    const adjusted = 0.30 + (baseThreshold - 0.40) * 0.5;
+    return Math.round(Math.max(0.25, Math.min(0.75, adjusted)) * 1000) / 1000;
+  }
+  if (soundClass === 'Footsteps') {
+    const adjusted = 0.58 + (baseThreshold - 0.40);
+    return Math.round(Math.max(0.50, Math.min(0.95, adjusted)) * 1000) / 1000;
+  }
+  if (soundClass === 'Speech' || soundClass === 'Conversation') {
+    const adjusted = 0.34 + (baseThreshold - 0.40);
+    return Math.round(Math.max(0.25, Math.min(0.90, adjusted)) * 1000) / 1000;
+  }
+  return baseThreshold;
+}
+
 export function processSoundDetection(input: ProcessEventInput): ProcessEventResult {
   const db = getDb();
 
   // Read settings
   const thresholdRow = db.prepare(`SELECT setting_value FROM settings WHERE setting_key = 'confidence_threshold'`).get() as { setting_value: string } | undefined;
   const minConfidence = thresholdRow ? parseFloat(thresholdRow.setting_value) : 0.40;
+  const effectiveMinConfidence = getCategoryEffectiveMinConfidence(input.sound_class, minConfidence);
 
   const cooldownRow = db.prepare(`SELECT setting_value FROM settings WHERE setting_key = 'duplicate_cooldown_sec'`).get() as { setting_value: string } | undefined;
   const cooldownSec = cooldownRow ? parseFloat(cooldownRow.setting_value) : 4.0;
@@ -58,11 +82,11 @@ export function processSoundDetection(input: ProcessEventInput): ProcessEventRes
   const groupingWindowSec = groupingWindowRow ? parseFloat(groupingWindowRow.setting_value) : 12.0;
 
   // 1. Confidence check
-  if (input.confidence < minConfidence) {
+  if (input.confidence < effectiveMinConfidence) {
     return {
       status: 'rejected_threshold',
       event: null,
-      message: `Confidence ${input.confidence.toFixed(2)} is below threshold ${minConfidence.toFixed(2)}`,
+      message: `Confidence ${input.confidence.toFixed(2)} is below threshold ${effectiveMinConfidence.toFixed(2)}`,
     };
   }
 

@@ -165,22 +165,35 @@ app.post('/api/ai/classify', async (req, res) => {
   );
 
   try {
+    // Read dynamic confidence_threshold from SQLite settings
+    const thresholdRow = db
+      .prepare(`SELECT setting_value FROM settings WHERE setting_key = 'confidence_threshold'`)
+      .get() as { setting_value: string } | undefined;
+    const configuredThreshold = thresholdRow ? parseFloat(thresholdRow.setting_value) : 0.40;
+
     // Forward to Python YAMNet AI Service
-    let aiResponse;
+    let aiResponse: any = null;
+    let aiServiceResponded = false;
     try {
-      aiResponse = await callAiService('/classify', 'POST', {
+      const pyResp = await callAiService('/classify', 'POST', {
         samples,
         audio_base64,
         sample_rate,
+        confidence_threshold: configuredThreshold,
         clientSessionId: validatedSessionId,
         client_session_id: validatedSessionId,
       });
+      if (pyResp && typeof pyResp === 'object' && 'detected' in pyResp) {
+        aiResponse = pyResp;
+        aiServiceResponded = true;
+      }
     } catch {
       aiResponse = null;
+      aiServiceResponded = false;
     }
 
-    // Fallback to built-in acoustic classifier if python service is unavailable or returned no detection
-    if (!aiResponse || !aiResponse.sound_class) {
+    // Fallback to built-in acoustic classifier ONLY when Python AI service is unavailable/unresponsive
+    if (!aiServiceResponded) {
       const audioSamples: number[] = Array.isArray(samples) && samples.length > 0
         ? samples
         : typeof audio_base64 === 'string' && audio_base64.length > 0
@@ -188,10 +201,10 @@ app.post('/api/ai/classify', async (req, res) => {
         : [];
 
       if (audioSamples.length > 0) {
-        const fallbackResult = classifyWaveform(audioSamples, sample_rate);
-        if (fallbackResult.detected && fallbackResult.sound_class) {
-          aiResponse = fallbackResult;
-        }
+        aiResponse = classifyWaveform(audioSamples, sample_rate, {
+          clientSessionId: validatedSessionId,
+          confidenceThreshold: configuredThreshold,
+        });
       }
     }
 
@@ -219,7 +232,7 @@ app.post('/api/ai/classify', async (req, res) => {
     res.json({
       success: true,
       detected: false,
-      message: 'No target sound detected above threshold',
+      message: aiResponse?.message || 'No target sound detected above threshold',
       prediction: aiResponse,
       clientSessionId: validatedSessionId,
     });

@@ -8,10 +8,9 @@ import json
 import logging
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
-import sys
 
-from config import HOST, PORT, TARGET_CLASSES
-from audio_processor import decode_audio_payload
+import audio_processor
+from config import HOST, PORT, SAMPLE_RATE, TARGET_CLASSES
 import detector
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -61,31 +60,37 @@ class AIServiceHandler(BaseHTTPRequestHandler):
             content_type = self.headers.get("Content-Type", "")
 
             samples = []
+            client_session_id = None
+            confidence_threshold = None
+
             if "application/json" in content_type:
                 try:
                     payload = json.loads(body.decode("utf-8"))
+                    client_session_id = (
+                        payload.get("clientSessionId")
+                        or payload.get("client_session_id")
+                        or payload.get("session_id")
+                    )
+                    if payload.get("confidence_threshold") is not None:
+                        try:
+                            confidence_threshold = float(payload["confidence_threshold"])
+                        except (TypeError, ValueError):
+                            confidence_threshold = None
+
                     if "samples" in payload and isinstance(payload["samples"], list):
                         samples = [float(x) for x in payload["samples"]]
-                        sample_rate = int(payload.get("sample_rate", 16000))
-                        if sample_rate != 16000 and len(samples) > 0:
-                            samples = audio_processor.resample_linear(samples, sample_rate, 16000)
+                        sample_rate = int(payload.get("sample_rate", SAMPLE_RATE))
+                        if sample_rate != SAMPLE_RATE and sample_rate > 0 and len(samples) > 0:
+                            samples = audio_processor.resample_linear(samples, sample_rate, SAMPLE_RATE)
                         samples = audio_processor.normalize_waveform(samples)
-                    elif "audio_base64" in payload:
+                    elif "audio_base64" in payload and isinstance(payload["audio_base64"], str):
                         raw_bytes = base64.b64decode(payload["audio_base64"])
-                        samples = decode_audio_payload(raw_bytes, payload.get("format", ""))
+                        samples = audio_processor.decode_audio_payload(raw_bytes, payload.get("format", ""))
                 except Exception as exc:
                     self._send_json(400, {"error": f"Invalid JSON payload: {exc}"})
                     return
             else:
-                samples = decode_audio_payload(body, content_type)
-
-            client_session_id = None
-            if "application/json" in content_type:
-                try:
-                    p = json.loads(body.decode("utf-8"))
-                    client_session_id = p.get("clientSessionId") or p.get("client_session_id") or p.get("session_id")
-                except Exception:
-                    pass
+                samples = audio_processor.decode_audio_payload(body, content_type)
 
             if not samples:
                 self._send_json(200, {
@@ -98,7 +103,11 @@ class AIServiceHandler(BaseHTTPRequestHandler):
                 })
                 return
 
-            result = detector.classify_waveform(samples)
+            result = detector.classify_waveform(
+                samples,
+                client_session_id=client_session_id,
+                confidence_threshold=confidence_threshold,
+            )
             if result and result.get("sound_class"):
                 self._send_json(200, {
                     "detected": True,
@@ -106,6 +115,7 @@ class AIServiceHandler(BaseHTTPRequestHandler):
                     **result
                 })
             else:
+                status_engine = detector.get_status()["inference_engine"]
                 self._send_json(200, {
                     "detected": False,
                     "sound_class": None,
@@ -113,7 +123,9 @@ class AIServiceHandler(BaseHTTPRequestHandler):
                     "client_session_id": client_session_id,
                     "message": "No target sound detected above threshold",
                     "predictions": result.get("predictions", []) if result else [],
-                    "inference_engine": result.get("inference_engine", detector.get_status()["inference_engine"]) if result else detector.get_status()["inference_engine"],
+                    "vad": result.get("vad") if result else None,
+                    "smoothed": result.get("smoothed", False) if result else False,
+                    "inference_engine": result.get("inference_engine", status_engine) if result else status_engine,
                 })
         else:
             self._send_json(404, {"error": "Endpoint not found"})

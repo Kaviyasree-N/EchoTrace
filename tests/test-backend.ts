@@ -9,6 +9,7 @@ import { processSoundDetection } from '../server/services/eventProcessor.ts';
 import { checkForAlert, acknowledgeAlert, getAlerts, getUnacknowledgedAlertCount } from '../server/services/alertManager.ts';
 import { evaluateRecentActivities, getActivities } from '../server/services/activityEngine.ts';
 import { getDashboardInsights, generateCsvReport } from '../server/services/reportGenerator.ts';
+import { classifyWaveform, resetAcousticTemporalState } from '../server/services/acousticClassifier.ts';
 
 let testsPassed = 0;
 let testsFailed = 0;
@@ -131,6 +132,69 @@ async function runTests() {
   assert(csvReport.includes('--- EVENTS LOG ---'), 'CSV report includes EVENTS LOG section');
   assert(csvReport.includes('--- INTERPRETED ACTIVITIES ---'), 'CSV report includes ACTIVITIES section');
   assert(csvReport.includes('--- CAREGIVER ALERTS ---'), 'CSV report includes ALERTS section');
+
+  console.log('\n--- 7. Testing Node.js Acoustic Classifier (VAD, Smoothing, Critical Sounds) ---');
+  resetAcousticTemporalState();
+  const sr = 16000;
+  // Speech-like harmonic waveform with syllabic modulation + 45 Hz rumble
+  const speechSamples: number[] = [];
+  for (let i = 0; i < sr; i++) {
+    const t = i / sr;
+    const env = 0.55 + 0.45 * Math.sin(2 * Math.PI * 3.5 * t);
+    const voiced =
+      0.35 * Math.sin(2 * Math.PI * 135 * t) +
+      0.3 * Math.sin(2 * Math.PI * 520 * t) +
+      0.22 * Math.sin(2 * Math.PI * 1300 * t) +
+      0.12 * Math.sin(2 * Math.PI * 2400 * t);
+    const rumble = 0.05 * Math.sin(2 * Math.PI * 45 * t);
+    speechSamples.push(Math.max(-0.95, Math.min(0.95, env * voiced * 0.45 + rumble)));
+  }
+  const speechRes = classifyWaveform(speechSamples, sr, { clientSessionId: 'node-speech' });
+  assert(speechRes.detected && speechRes.sound_class === 'Speech', `Speech waveform detected as Speech (got ${speechRes.sound_class})`);
+  assert(speechRes.vad?.is_speech_active === true, 'VAD marks voiced speech waveform as active speech');
+
+  // Footsteps-like low-frequency impulsive bursts
+  const footSamples = new Array<number>(sr).fill(0);
+  for (const st of [0.15, 0.65]) {
+    const startIdx = Math.floor(st * sr);
+    const burstLen = Math.floor(0.08 * sr);
+    for (let j = 0; j < burstLen && startIdx + j < sr; j++) {
+      const tl = j / sr;
+      const decay = Math.exp(-tl * 45);
+      const thud = 0.7 * Math.sin(2 * Math.PI * 115 * tl) + 0.35 * Math.sin(2 * Math.PI * 175 * tl);
+      footSamples[startIdx + j] = decay * thud * 0.75;
+    }
+  }
+  const foot1Res = classifyWaveform(footSamples, sr, { clientSessionId: 'node-foot' });
+  assert(!foot1Res.detected, 'Single isolated Footsteps chunk is suppressed pending confirmation');
+  const foot2Res = classifyWaveform(footSamples, sr, { clientSessionId: 'node-foot' });
+  assert(foot2Res.detected && foot2Res.sound_class === 'Footsteps', `Consecutive Footsteps chunks confirmed (got ${foot2Res.sound_class})`);
+
+  // Smoke detector 3100 Hz alarm
+  const smokeSamples: number[] = [];
+  for (let i = 0; i < sr; i++) {
+    const t = i / sr;
+    const gate = t % 0.5 < 0.35 ? 1.0 : 0.05;
+    smokeSamples.push(gate * 0.55 * Math.sin(2 * Math.PI * 3100 * t));
+  }
+  const smokeRes = classifyWaveform(smokeSamples, sr, { clientSessionId: 'node-smoke' });
+  assert(smokeRes.detected && smokeRes.sound_class === 'Smoke detector, smoke alarm', `Smoke alarm detected immediately (got ${smokeRes.sound_class})`);
+
+  // Glass break high-frequency transient burst
+  const glassSamples = new Array<number>(sr).fill(0);
+  const gStart = Math.floor(0.25 * sr);
+  const gLen = Math.floor(0.18 * sr);
+  let seed = 99;
+  for (let j = 0; j < gLen && gStart + j < sr; j++) {
+    const tl = j / sr;
+    const decay = Math.exp(-tl * 18);
+    seed = (seed * 1664525 + 1013904223) % 4294967296;
+    const noise = (seed / 4294967296) * 2 - 1;
+    const ring = 0.4 * Math.sin(2 * Math.PI * 3800 * tl) + 0.35 * Math.sin(2 * Math.PI * 5400 * tl) + 0.45 * noise;
+    glassSamples[gStart + j] = Math.max(-0.95, Math.min(0.95, decay * ring * 0.8));
+  }
+  const glassRes = classifyWaveform(glassSamples, sr, { clientSessionId: 'node-glass' });
+  assert(glassRes.detected && glassRes.sound_class === 'Glass breaking', `Glass breaking detected immediately (got ${glassRes.sound_class})`);
 
   console.log(`\n========================================`);
   console.log(`Test Results: ${testsPassed} Passed, ${testsFailed} Failed`);
