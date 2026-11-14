@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ROOMS, TARGET_CLASSES } from './config';
 import type { SoundEvent, Activity, Alert, StatsData, AiStatus, NotificationPermissionState, AppSettings } from './types';
 import SettingsModal from './components/SettingsModal';
+import OverviewDashboard from './components/OverviewDashboard';
 import { playAlertChime, unlockAudioContext } from './utils/alertChime';
 import {
   getNotificationPermissionStatus,
@@ -1112,15 +1113,31 @@ export default function App() {
         )}
 
         {/* View Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+        <header
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '16px',
+            paddingBottom: '16px',
+            borderBottom: '1px solid #21262d',
+          }}
+        >
           <div>
-            <h1 style={{ margin: '0 0 4px 0', fontSize: '1.5rem', fontWeight: 700, color: '#ffffff' }}>
-              {activeTab === 'overview' && 'Ambient Sound Monitor'}
-              {activeTab === 'alerts' && 'Caregiver Alerts & Urgent Sounds'}
-              {activeTab === 'activities' && 'Interpreted Daily Routines'}
-              {activeTab === 'history' && 'Sound Timeline & Search'}
-              {activeTab === 'analytics' && 'Activity Insights & Patterns'}
-            </h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#58a6ff', letterSpacing: '0.01em' }}>
+                🎧 EchoTrace
+              </span>
+              <span aria-hidden="true" style={{ color: '#30363d' }}>/</span>
+              <h1 style={{ margin: 0, fontSize: '1.45rem', fontWeight: 700, color: '#ffffff', letterSpacing: '-0.01em' }}>
+                {activeTab === 'overview' && 'Ambient Sound Monitor'}
+                {activeTab === 'alerts' && 'Caregiver Alerts & Urgent Sounds'}
+                {activeTab === 'activities' && 'Interpreted Daily Routines'}
+                {activeTab === 'history' && 'Sound Timeline & Search'}
+                {activeTab === 'analytics' && 'Activity Insights & Patterns'}
+              </h1>
+            </div>
             <div style={{ fontSize: '0.84rem', color: '#8b949e' }}>
               {activeTab === 'overview' && `Real-time ambient sound classification and caregiver monitoring for ${room}`}
               {activeTab === 'alerts' && 'Manage urgent sound events requiring caregiver attention (smoke alarms, falls, broken glass)'}
@@ -1130,495 +1147,82 @@ export default function App() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
             <span
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '6px',
-                padding: '5px 12px',
-                borderRadius: '999px',
-                fontSize: '0.78rem',
+                padding: '6px 12px',
+                borderRadius: '6px',
+                fontSize: '0.8rem',
                 fontWeight: 600,
-                backgroundColor: isListening ? '#0d4429' : '#21262d',
+                fontVariantNumeric: 'tabular-nums',
+                backgroundColor: isListening ? 'rgba(63, 185, 80, 0.12)' : '#161b22',
                 color: isListening ? '#3fb950' : '#8b949e',
                 border: isListening ? '1px solid #238636' : '1px solid #30363d',
+                whiteSpace: 'nowrap',
               }}
             >
-              {isListening ? `● LIVE MONITORING (${audioLevel}%)` : '○ MONITORING STANDBY'}
+              {isListening ? `● Live Monitoring (${audioLevel}%)` : '○ Monitoring Standby'}
             </span>
 
             <button
+              type="button"
               onClick={() => setSettingsModalOpen(true)}
               style={{
                 backgroundColor: '#21262d',
                 color: '#e6edf3',
                 border: '1px solid #30363d',
                 borderRadius: '6px',
-                padding: '6px 12px',
-                fontSize: '0.8rem',
+                padding: '7px 14px',
+                fontSize: '0.82rem',
                 fontWeight: 600,
                 cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                whiteSpace: 'nowrap',
               }}
             >
-              ⚙️ Settings
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              </svg>
+              Settings
             </button>
           </div>
-        </div>
+        </header>
 
-        {/* ── UNIFIED MONITORING & SOUND SIMULATOR CONSOLE ───────────────────── */}
-        <div
-          style={{
-            backgroundColor: '#161b22',
-            border: '1px solid #30363d',
-            borderRadius: '10px',
-            padding: '18px 20px',
-            display: 'grid',
-            gridTemplateColumns: '1.2fr 1.8fr',
-            gap: '24px',
-            boxShadow: '0 2px 10px rgba(0,0,0,0.15)',
-          }}
-        >
-          {/* Column 1: Live Audio Controls & Visualizer */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                <span style={{ fontWeight: 600, fontSize: '0.9rem', color: '#e6edf3' }}>
-                  🎙️ Ambient Microphone ({room})
-                </span>
-                <span style={{ fontSize: '0.75rem', color: isListening ? '#3fb950' : '#8b949e', fontWeight: 600 }}>
-                  {isListening ? 'Active' : 'Stopped'}
-                </span>
-              </div>
-              <div style={{ fontSize: '0.75rem', color: '#8b949e' }}>
-                Captures ambient audio through AudioWorklet and classifies at 16 kHz locally.
-              </div>
-            </div>
-
-            {/* Action button */}
-            {isListening ? (
-              <button
-                onClick={stopAudioCapture}
-                style={{
-                  width: '100%',
-                  backgroundColor: '#21262d',
-                  color: '#f85149',
-                  border: '1px solid #da3633',
-                  borderRadius: '8px',
-                  fontWeight: 600,
-                  padding: '11px 16px',
-                  fontSize: '0.9rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                }}
-              >
-                <span>⏹</span> Stop Listening
-              </button>
-            ) : (
-              <button
-                onClick={startAudioCapture}
-                style={{
-                  width: '100%',
-                  backgroundColor: '#238636',
-                  color: '#ffffff',
-                  border: '1px solid #2ea043',
-                  borderRadius: '8px',
-                  fontWeight: 600,
-                  padding: '11px 16px',
-                  fontSize: '0.9rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  boxShadow: '0 2px 8px rgba(35, 134, 54, 0.3)',
-                }}
-              >
-                <span>▶</span> Start Listening
-              </button>
-            )}
-
-            {/* Live Audio Volume Equalizer Meter */}
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#8b949e', marginBottom: '4px' }}>
-                <span>Signal Activity</span>
-                <span>{isListening ? `${audioLevel}%` : 'Off'}</span>
-              </div>
-              <div
-                style={{
-                  height: '10px',
-                  backgroundColor: '#0d1117',
-                  borderRadius: '5px',
-                  overflow: 'hidden',
-                  border: '1px solid #30363d',
-                  display: 'flex',
-                  padding: '1px',
-                  gap: '2px',
-                }}
-              >
-                {[10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map((step) => {
-                  const active = isListening && audioLevel >= step;
-                  const color = step <= 50 ? '#3fb950' : step <= 80 ? '#e3b341' : '#f85149';
-                  return (
-                    <div
-                      key={step}
-                      style={{
-                        flex: 1,
-                        backgroundColor: active ? color : '#21262d',
-                        borderRadius: '2px',
-                        transition: 'background-color 0.1s ease',
-                      }}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-
-            {micError && (
-              <div
-                style={{
-                  padding: '6px 10px',
-                  backgroundColor: '#271d0a',
-                  border: '1px solid #9e6a03',
-                  borderRadius: '6px',
-                  fontSize: '0.74rem',
-                  color: '#e3b341',
-                }}
-              >
-                ⚠ {micError}
-              </div>
-            )}
-
-            <div style={{ fontSize: '0.7rem', color: '#8b949e', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>🔒</span>
-              <span>100% on-device privacy. Zero raw audio leaves this machine.</span>
-            </div>
-          </div>
-
-          {/* Column 2: Quick Sound Simulator */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#e6edf3' }}>
-                ⚡ Quick Sound Simulator
-              </div>
-              <span style={{ fontSize: '0.72rem', color: '#e3b341', backgroundColor: '#271d0a', padding: '2px 8px', borderRadius: '4px', border: '1px solid #9e6a03' }}>
-                Tagged as ⚡ Simulated
-              </span>
-            </div>
-            <div style={{ fontSize: '0.75rem', color: '#8b949e' }}>
-              Click any sound below to simulate an event in <strong>{room}</strong> and test caregiver alerts instantly:
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px' }}>
-              {[
-                { label: '🔑 Keys jingling', conf: 0.94 },
-                { label: '🚪 Door knock', sound: 'Knock', conf: 0.88 },
-                { label: '💧 Water tap', sound: 'Water tap, faucet', conf: 0.91 },
-                { label: '🗣️ Speech', conf: 0.86 },
-                { label: '👣 Footsteps', conf: 0.79 },
-                { label: '☕ Coffee maker', conf: 0.92 },
-                { label: '🍽️ Dishes & pans', sound: 'Dishes, pots, and pans', conf: 0.89 },
-                { label: '🗄️ Drawer', conf: 0.84 },
-                { label: '🪟 Glass breaking', sound: 'Glass breaking', conf: 0.96, isAlert: true, alertTag: 'High Alert' },
-                { label: '🚨 Smoke alarm', sound: 'Smoke detector, smoke alarm', conf: 0.98, isAlert: true, alertTag: 'Critical' },
-              ].map((item) => {
-                return (
-                  <button
-                    key={item.label}
-                    onClick={() => triggerSimulatedSound(item.sound || item.label.replace(/^[\p{Emoji}\s]+/u, ''), item.conf)}
-                    style={{
-                      backgroundColor: item.isAlert ? '#211215' : '#21262d',
-                      color: item.isAlert ? '#ff7b72' : '#c9d1d9',
-                      border: item.isAlert ? '1px solid #da3633' : '1px solid #30363d',
-                      borderRadius: '6px',
-                      padding: '7px 10px',
-                      fontSize: '0.75rem',
-                      fontWeight: 500,
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'center',
-                      transition: 'background-color 0.15s ease',
-                    }}
-                  >
-                    <span>{item.label}</span>
-                    {item.alertTag ? (
-                      <span
-                        style={{
-                          fontSize: '0.65rem',
-                          backgroundColor: '#f85149',
-                          color: '#ffffff',
-                          padding: '1px 5px',
-                          borderRadius: '3px',
-                          fontWeight: 700,
-                        }}
-                      >
-                        {item.alertTag}
-                      </span>
-                    ) : (
-                      <span style={{ fontSize: '0.68rem', color: '#8b949e' }}>{Math.round(item.conf * 100)}%</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* ── KEY METRICS ROW ──────────────────────────────────────────────── */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px' }}>
-          <div style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '8px', padding: '14px 16px' }}>
-            <div style={{ color: '#8b949e', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>
-              🔔 Today's Sounds
-            </div>
-            <div style={{ color: '#ffffff', fontSize: '1.6rem', fontWeight: 700 }}>{stats.today}</div>
-            <div style={{ color: '#8b949e', fontSize: '0.72rem', marginTop: '2px' }}>
-              {stats.total} total recorded events
-            </div>
-          </div>
-
-          <div
-            onClick={() => unackAlertCount > 0 && setActiveTab('alerts')}
-            style={{
-              backgroundColor: '#161b22',
-              border: unackAlertCount > 0 ? '1px solid #f85149' : '1px solid #30363d',
-              borderRadius: '8px',
-              padding: '14px 16px',
-              cursor: unackAlertCount > 0 ? 'pointer' : 'default',
-            }}
-          >
-            <div style={{ color: '#8b949e', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>
-              🚨 Active Caregiver Alerts
-            </div>
-            <div style={{ color: unackAlertCount > 0 ? '#f85149' : '#3fb950', fontSize: '1.6rem', fontWeight: 700 }}>
-              {unackAlertCount}
-            </div>
-            <div style={{ color: unackAlertCount > 0 ? '#f85149' : '#3fb950', fontSize: '0.72rem', marginTop: '2px' }}>
-              {unackAlertCount > 0 ? '● Pending review (Click to view)' : '✓ All quiet and safe'}
-            </div>
-          </div>
-
-          <div
-            onClick={() => setActiveTab('activities')}
-            style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '8px', padding: '14px 16px', cursor: 'pointer' }}
-          >
-            <div style={{ color: '#8b949e', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>
-              🧠 Daily Routines
-            </div>
-            <div style={{ color: '#ffffff', fontSize: '1.6rem', fontWeight: 700 }}>{activities.length}</div>
-            <div style={{ color: '#58a6ff', fontSize: '0.72rem', marginTop: '2px' }}>
-              Inferred activity patterns →
-            </div>
-          </div>
-
-          <div style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '8px', padding: '14px 16px' }}>
-            <div style={{ color: '#8b949e', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '2px' }}>
-              📍 Monitored Location
-            </div>
-            <div style={{ color: '#ffffff', fontSize: '1.3rem', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {room}
-            </div>
-            <div style={{ color: isListening ? '#3fb950' : '#8b949e', fontSize: '0.72rem', marginTop: '4px' }}>
-              {isListening ? '● Live Audio Stream' : '○ Standby'}
-            </div>
-          </div>
-        </div>
-
-        {/* ── TAB 1: LIVE OVERVIEW ─────────────────────────────────────────── */}
+        {/* ── TAB 1: LIVE OVERVIEW (MAIN DASHBOARD) ─────────────────────────── */}
         {activeTab === 'overview' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: '20px' }}>
-            {/* Column 1: Live Feed */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ fontSize: '0.98rem', fontWeight: 600, color: '#e6edf3', margin: 0 }}>
-                  🔴 Live Sound Feed
-                </h3>
-                <span style={{ fontSize: '0.72rem', color: '#8b949e' }}>Auto-refreshes every 3s</span>
-              </div>
-
-              {recentEvents.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {recentEvents.map((ev) => (
-                    <div
-                      key={ev.id}
-                      style={{
-                        backgroundColor: '#161b22',
-                        border: '1px solid #30363d',
-                        borderLeft: ev.source === 'microphone' ? '3px solid #3fb950' : '3px solid #58a6ff',
-                        borderRadius: '6px',
-                        padding: '10px 14px',
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '0.95rem', fontWeight: 600, color: '#ffffff' }}>
-                            🔊 {ev.sound_class}
-                          </span>
-                          <span
-                            style={{
-                              fontSize: '0.68rem',
-                              padding: '1px 5px',
-                              borderRadius: '4px',
-                              backgroundColor: ev.source === 'microphone' ? '#0d4429' : '#21262d',
-                              color: ev.source === 'microphone' ? '#3fb950' : '#8b949e',
-                              border: '1px solid #30363d',
-                            }}
-                          >
-                            {ev.source === 'microphone' ? '🎙️ Mic' : '⚡ Sim'}
-                          </span>
-                          {ev.duration > 1 && (
-                            <span style={{ fontSize: '0.7rem', color: '#8b949e' }}>
-                              ⏱️ {ev.duration}s
-                            </span>
-                          )}
-                        </div>
-                        <div style={{ fontSize: '0.82rem', fontWeight: 600, color: '#58a6ff' }}>
-                          {Math.round(ev.confidence * 100)}%
-                        </div>
-                      </div>
-                      <div style={{ fontSize: '0.75rem', color: '#8b949e', marginTop: '3px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>🕐 {formatTime(ev.timestamp)} &nbsp;|&nbsp; 📍 {ev.room}</span>
-                        {(ev.client_session_id || ev.session_id) && (
-                          <span style={{ fontSize: '0.68rem', color: '#8b949e', fontFamily: 'monospace' }}>
-                            🆔 {(ev.client_session_id || ev.session_id || '').slice(0, 8)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div
-                  style={{
-                    backgroundColor: '#161b22',
-                    border: '1px dashed #30363d',
-                    borderRadius: '8px',
-                    padding: '24px 20px',
-                    color: '#8b949e',
-                    fontSize: '0.85rem',
-                    textAlign: 'center',
-                    lineHeight: 1.5,
-                  }}
-                >
-                  {isListening
-                    ? '👂 Listening for sounds in real time… Speak, clap, or click any sound in the Quick Sound Simulator above!'
-                    : 'No sound events yet. Click ▶ Start Listening or test any sound in the Quick Sound Simulator.'}
-                </div>
-              )}
-            </div>
-
-            {/* Column 2: Sound Frequencies & Routine Highlights */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {/* Sound Frequency */}
-              <div style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '8px', padding: '14px 16px' }}>
-                <h4 style={{ margin: '0 0 10px 0', fontSize: '0.88rem', fontWeight: 600, color: '#e6edf3' }}>
-                  📊 Sound Frequency
-                </h4>
-                {barChartData.length > 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {barChartData.slice(0, 6).map((item) => {
-                      const pct = Math.max(10, Math.round((item.count / maxBarCount) * 100));
-                      return (
-                        <div key={item.sound}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.76rem', marginBottom: '2px' }}>
-                            <span style={{ color: '#e6edf3' }}>{item.sound}</span>
-                            <span style={{ color: '#58a6ff', fontWeight: 600 }}>{item.count}</span>
-                          </div>
-                          <div style={{ height: '8px', backgroundColor: '#21262d', borderRadius: '3px', overflow: 'hidden' }}>
-                            <div style={{ width: `${pct}%`, height: '100%', backgroundColor: '#58a6ff', borderRadius: '3px' }} />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div style={{ fontSize: '0.78rem', color: '#8b949e' }}>
-                    Sound frequencies will appear here as events are detected.
-                  </div>
-                )}
-              </div>
-
-              {/* Routine Highlights Card */}
-              <div style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '8px', padding: '14px 16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <h4 style={{ margin: 0, fontSize: '0.88rem', fontWeight: 600, color: '#e6edf3' }}>
-                    🧠 Daily Activity Routines
-                  </h4>
-                  <button
-                    onClick={() => setActiveTab('activities')}
-                    style={{ background: 'none', border: 'none', color: '#58a6ff', fontSize: '0.74rem', cursor: 'pointer', padding: 0 }}
-                  >
-                    View All ({activities.length}) →
-                  </button>
-                </div>
-                {activities.length > 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {activities.slice(0, 2).map((act) => (
-                      <div key={act.id} style={{ backgroundColor: '#21262d', padding: '8px 10px', borderRadius: '6px', fontSize: '0.78rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', color: '#ffffff', fontWeight: 600 }}>
-                          <span>{act.activity_type}</span>
-                          <span style={{ color: '#58a6ff', fontSize: '0.72rem' }}>📍 {act.room}</span>
-                        </div>
-                        <div style={{ color: '#8b949e', fontSize: '0.72rem', marginTop: '2px' }}>
-                          {act.description}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div style={{ fontSize: '0.78rem', color: '#8b949e' }}>
-                    Activity sequences (e.g. hygiene, meal prep) will automatically form here.
-                  </div>
-                )}
-              </div>
-
-              {/* Caregiver Protection Settings Quick Card */}
-              <div style={{ backgroundColor: '#161b22', border: '1px solid #30363d', borderRadius: '8px', padding: '14px 16px' }}>
-                <h4 style={{ margin: '0 0 6px 0', fontSize: '0.88rem', fontWeight: 600, color: '#e6edf3' }}>
-                  🛡️ Caregiver Protection
-                </h4>
-                <div style={{ fontSize: '0.75rem', color: '#8b949e', lineHeight: 1.4, marginBottom: '8px' }}>
-                  Alerts automatically sound a 2-tone melodic chime and dispatch desktop notifications.
-                </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    onClick={handleTestChime}
-                    style={{
-                      backgroundColor: '#21262d',
-                      color: '#58a6ff',
-                      border: '1px solid #30363d',
-                      borderRadius: '6px',
-                      padding: '5px 10px',
-                      fontSize: '0.74rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    ▶ Test Chime
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('alerts')}
-                    style={{
-                      backgroundColor: '#21262d',
-                      color: '#e6edf3',
-                      border: '1px solid #30363d',
-                      borderRadius: '6px',
-                      padding: '5px 10px',
-                      fontSize: '0.74rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Configure Alerts →
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+          <OverviewDashboard
+            room={room}
+            rooms={ROOMS}
+            onRoomChange={setRoom}
+            isListening={isListening}
+            audioLevel={audioLevel}
+            micError={micError}
+            aiStatus={aiStatus}
+            onStartListening={startAudioCapture}
+            onStopListening={stopAudioCapture}
+            stats={stats}
+            unackAlertCount={unackAlertCount}
+            alerts={alerts}
+            recentEvents={recentEvents}
+            activities={activities}
+            barChartData={barChartData}
+            maxBarCount={maxBarCount}
+            simulatorOpen={simulatorOpen}
+            onToggleSimulator={() => setSimulatorOpen((prev) => !prev)}
+            onTriggerSimulatedSound={triggerSimulatedSound}
+            onAcknowledgeAlert={handleAcknowledgeAlert}
+            onAcknowledgeAllAlerts={handleAcknowledgeAllAlerts}
+            onTestChime={handleTestChime}
+            onNavigateTab={setActiveTab}
+            formatTime={formatTime}
+            formatDateTime={formatDateTime}
+          />
         )}
 
         {/* ── TAB 2: CAREGIVER ALERTS ──────────────────────────────────────── */}
